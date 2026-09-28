@@ -14,7 +14,7 @@ export default function TabLayout() {
           borderTopWidth: 1,
           borderTopColor: "#EEF2F6",
           height: 60,
-          paddingBottom: 8,
+          paddingBottom: 50,
           paddingTop: 8,
         },
       }}
@@ -22,18 +22,18 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Wallet",
+          title: "Index",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="wallet-outline" size={size} color={color} />
+            <Ionicons name="home" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="trade"
+        name="wallet"
         options={{
-          title: "Trade",
+          title: "Wallet",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="compass-outline" size={size} color={color} />
+            <Ionicons name="wallet-outline" size={size} color={color} />
           ),
         }}
       />
@@ -46,6 +46,7 @@ export default function TabLayout() {
           ),
         }}
       />
+
       <Tabs.Screen
         name="settings"
         options={{

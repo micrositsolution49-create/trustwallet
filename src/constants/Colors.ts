@@ -1,4 +1,3 @@
-// constants/Colors.ts
 export const Colors = {
   primary: "#0500FF", // or Trust Wallet vibrant blue
   brandBlue: "#0560FA",

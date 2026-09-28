@@ -1,7 +1,9 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { useState } from "react";
+import { executeBlockchainTransaction } from "@/services/transactionService"; // Import karein
+import { useState, useEffect, useCallback } from "react";
 import {
-  SafeAreaView,
+  Alert,
+  ActivityIndicator,
   StatusBar,
   StyleSheet,
   Text,
@@ -9,21 +11,121 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useAuth } from "@/context/AuthContext";      
+import {
+  fetchCryptoPrices,
+  getNativeBalance, 
+  NETWORKS,
+} from "@/services/cryptoService";
+import { useFocusEffect } from "expo-router";
 
 export default function SwapScreen() {
-  const [payAmount, setPayAmount] = useState("1");
-  const ethRate = 3450.5; // Example conversion rate
+  const { address } = useAuth();
+
+  
+
+  const [fromToken, setFromToken] = useState({
+    symbol: "ETH",
+    name: "Ethereum",
+    balance: "0.00",
+    icon: "ethereum",
+    color: "#627EEA",     
+    network: "ethereum",
+  });
+  const [toToken, setToToken] = useState({
+    symbol: "USDT",
+    name: "USDT",
+    balance: "0.00",
+    icon: "currency-usd",
+    color: "#26A17B",
+    network: "ethereum",
+  });
+
+  const [payAmount, setPayAmount] = useState("0.001");
+  const [ethRate, setEthRate] = useState(3450.5);
+  const [loading, setLoading] = useState(false);
+  const [swapping, setSwapping] = useState(false);
+
+  const USD_TO_INR = 83.5;
+  const handleConfirmSwap = async () => {
+    if (!address) {
+      Alert.alert("Error", "Wallet not connected.");
+      return;
+    }
+    if (!payAmount || parseFloat(payAmount) <= 0) {
+      Alert.alert("Invalid Amount", "Please enter a valid amount to swap.");
+      return;
+    }
+
+    try {
+      setSwapping(true);
+
+      // Yahan service function call hoga jo real blockchain transaction karega
+      const txHash = await executeBlockchainTransaction(payAmount, address);
+
+      Alert.alert(
+        "Transaction Success!",
+        `Hash:\n${txHash.substring(0, 20)}...`,
+      );
+    } catch (error: any) {
+      console.error("Transaction failed:", error);
+      Alert.alert(
+        "Failed",
+        error.message || "Transaction could not be completed.",
+      );
+    } finally {
+      setSwapping(false);
+    }
+  };
+
+  useEffect(() => {
+    async function loadSwapData() {
+      if (!address) return;
+      try {
+        setLoading(true);
+        const prices = await fetchCryptoPrices();
+        if (prices?.ethereum?.usd) {
+          setEthRate(prices.ethereum.usd);
+        }
+
+        const ethBalance = await getNativeBalance(address, "localhost");
+        setFromToken((prev) => ({
+          ...prev,
+          balance: parseFloat(ethBalance).toFixed(4),
+        }));
+      } catch (err) {
+        console.error("Failed to load swap rates/balances", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadSwapData();
+  }, [address]);
 
   const receiveAmount =
     payAmount && !isNaN(Number(payAmount))
       ? (parseFloat(payAmount) * ethRate).toFixed(2)
       : "0.00";
 
+  const handleSwitchTokens = () => {
+    setFromToken(toToken);
+    setToToken(fromToken);
+    setPayAmount(
+      receiveAmount !== "0.00"
+        ? (parseFloat(receiveAmount) / ethRate).toFixed(4)
+        : "0.001",
+    );
+  };
+
+  const usdValue =
+    parseFloat(payAmount || "0") * (fromToken.symbol === "ETH" ? ethRate : 1);
+  const inrValue = usdValue * USD_TO_INR;
+
   return (
     <SafeAreaView style={styles.safeContainer}>
       <StatusBar barStyle="dark-content" />
 
-      {/* Top Header */}
       <View style={styles.topHeader}>
         <TouchableOpacity>
           <Ionicons name="chevron-back" size={24} color="#0F172A" />
@@ -39,16 +141,18 @@ export default function SwapScreen() {
         <View style={styles.swapCard}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardLabel}>From</Text>
-            <Text style={styles.balanceHint}>Balance: 2.45 ETH</Text>
+            <Text style={styles.balanceHint}>
+              Balance: {fromToken.balance} {fromToken.symbol}
+            </Text>
           </View>
           <View style={styles.inputRow}>
             <TouchableOpacity style={styles.tokenPickerBtn}>
               <MaterialCommunityIcons
-                name="ethereum"
+                name={fromToken.icon as any}
                 size={22}
-                color="#627EEA"
+                color={fromToken.color}
               />
-              <Text style={styles.tokenPickerText}>Ethereum</Text>
+              <Text style={styles.tokenPickerText}>{fromToken.symbol}</Text>
               <Ionicons name="chevron-down" size={16} color="#64748B" />
             </TouchableOpacity>
             <TextInput
@@ -58,16 +162,34 @@ export default function SwapScreen() {
               onChangeText={setPayAmount}
               placeholder="0.0"
               placeholderTextColor="#94A3B8"
+              numberOfLines={1}
             />
           </View>
-          <Text style={styles.usdEquivalent}>
-            ≈ ${(parseFloat(payAmount || "0") * ethRate).toLocaleString()}
+          <Text
+            style={styles.usdEquivalent}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            ≈ $
+            {usdValue.toLocaleString("en-US", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}{" "}
+            (₹
+            {inrValue.toLocaleString("en-IN", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
+            )
           </Text>
         </View>
 
         {/* Swap Switcher Button */}
         <View style={styles.switchButtonWrapper}>
-          <TouchableOpacity style={styles.switchButton}>
+          <TouchableOpacity
+            style={styles.switchButton}
+            onPress={handleSwitchTokens}
+          >
             <Ionicons name="swap-vertical" size={20} color="#0090FF" />
           </TouchableOpacity>
         </View>
@@ -76,38 +198,68 @@ export default function SwapScreen() {
         <View style={[styles.swapCard, { marginTop: -14 }]}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardLabel}>To</Text>
-            <Text style={styles.balanceHint}>Balance: 140.00 USDT</Text>
+            <Text style={styles.balanceHint}>
+              Balance: {toToken.balance} {toToken.symbol}
+            </Text>
           </View>
           <View style={styles.inputRow}>
             <TouchableOpacity style={styles.tokenPickerBtn}>
               <MaterialCommunityIcons
-                name="currency-usd"
+                name={toToken.icon as any}
                 size={22}
-                color="#26A17B"
+                color={toToken.color}
               />
-              <Text style={styles.tokenPickerText}>USDT</Text>
+              <Text style={styles.tokenPickerText}>{toToken.symbol}</Text>
               <Ionicons name="chevron-down" size={16} color="#64748B" />
             </TouchableOpacity>
-            <Text style={styles.amountResult}>{receiveAmount}</Text>
+            <Text style={styles.amountResult} numberOfLines={1}>
+              {receiveAmount}
+            </Text>
           </View>
-          <Text style={styles.usdEquivalent}>≈ ${receiveAmount}</Text>
+          <Text
+            style={styles.usdEquivalent}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            ≈ $
+            {parseFloat(receiveAmount).toLocaleString("en-US", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}{" "}
+            (₹
+            {(parseFloat(receiveAmount) * USD_TO_INR).toLocaleString("en-IN", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
+            )
+          </Text>
         </View>
 
         {/* Fee & Rate Summary */}
         <View style={styles.summaryContainer}>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Estimated conversion</Text>
-            <Text style={styles.summaryValue}>1 ETH ≈ 3,450.50 USDT</Text>
+            <Text style={styles.summaryValue}>
+              1 {fromToken.symbol} ≈ {ethRate.toLocaleString()} {toToken.symbol}
+            </Text>
           </View>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Gas Fee estimate</Text>
-            <Text style={styles.summaryValue}>~$0.85 USD</Text>
+            <Text style={styles.summaryValue}>~$0.85 USD (~₹70.98)</Text>
           </View>
         </View>
 
         {/* Confirm Action Button */}
-        <TouchableOpacity style={styles.confirmBtn}>
-          <Text style={styles.confirmBtnText}>Confirm Swap</Text>
+        <TouchableOpacity
+          style={[styles.confirmBtn, swapping && { opacity: 0.7 }]}
+          onPress={handleConfirmSwap}
+          disabled={swapping}
+        >
+          {swapping ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.confirmBtnText}>Confirm Swap</Text>
+          )}
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -156,21 +308,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     borderRadius: 14,
     gap: 6,
+    flexShrink: 0,
   },
   tokenPickerText: { fontSize: 15, fontWeight: "600", color: "#0F172A" },
   amountInput: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: "700",
     color: "#0F172A",
     textAlign: "right",
     flex: 1,
     marginLeft: 12,
+    padding: 0,
   },
   amountResult: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: "700",
     color: "#0F172A",
     textAlign: "right",
+    flex: 1,
+    marginLeft: 12,
   },
   usdEquivalent: {
     fontSize: 12,

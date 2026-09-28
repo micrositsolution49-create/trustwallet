@@ -263,7 +263,7 @@ function SettingRow({
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#F8FAFC" },
+  safeArea: { backgroundColor: "#F8FAFC" },
   header: {
     flexDirection: "row",
     alignItems: "center",

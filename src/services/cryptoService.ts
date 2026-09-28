@@ -22,7 +22,7 @@ export const NETWORKS = {
   // 'ethereum' ki jagah key ka naam 'localhost' ya 'hardhat' kar do
   localhost: {
     name: "Local Hardhat",
-    rpcUrl: "http://192.168.1.36:8545",
+    rpcUrl: "http://192.168.1.34:8545",
     symbol: "ETH",
     chainId: 31337,
   },
@@ -102,7 +102,7 @@ const ERC20_ABI = [
 export const getTokenBalance = async (
   walletAddress: string,
   tokenContractAddress: string,
-  network: keyof typeof NETWORKS
+  network: keyof typeof NETWORKS,
 ): Promise<string> => {
   try {
     const { rpcUrl, chainId } = NETWORKS[network];

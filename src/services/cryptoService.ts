@@ -21,7 +21,7 @@ export const NETWORKS = {
   },
   localhost: {
     name: "Local Hardhat",
-    rpcUrl: "http://192.168.1.36:8545",
+    rpcUrl: "http://192.168.1.34:8545",
     symbol: "ETH",
     chainId: 31337,
   },
@@ -103,7 +103,7 @@ export const getNativeBalance = async (
 export const getTokenBalance = async (
   walletAddress: string,
   tokenContractAddress: string,
-  network: keyof typeof NETWORKS
+  network: keyof typeof NETWORKS,
 ): Promise<string> => {
   try {
     const netConfig = NETWORKS[network];

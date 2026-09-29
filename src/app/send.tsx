@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import React, { useState } from "react";
 import {
   StyleSheet,
@@ -172,15 +171,3 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
 });
-=======
-import { View } from "react-native";
-import { Text } from "react-native-svg";
-
-export default function SendScreen() {
-  return (
-    <View>
-      <Text>Send</Text>
-    </View>
-  );
-}
->>>>>>> 100801309c2c14972cc9c0abe6060549730082f7

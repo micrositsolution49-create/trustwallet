@@ -230,49 +230,6 @@ export default function BrowserScreen() {
 
     const fetchCryptoData = async () => {
       try {
-<<<<<<< HEAD
-        const response = await fetch(
-          `https://api.coingecko.com/api/v3/coins/markets?vs_currency=${currency}&order=market_cap_desc&per_page=20&page=1&sparkline=false`,
-          {
-            headers: {
-              Accept: "application/json",
-              // Agar aapke paas CoinGecko ki Demo/Pro API key hai toh yahan header me pass kar sakte hain:
-              // "x-cg-demo-api-key": "YOUR_API_KEY"
-            },
-          },
-        );
-
-        // Check karein ki response successful hai ya nahi (jaise 429 rate limit toh nahi hai)
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        // Check karein ki response JSON hai ya HTML
-        const contentType = response.headers.get("content-type");
-        if (!contentType || !contentType.includes("application/json")) {
-          const textResponse = await response.text();
-          throw new Error(
-            `Received HTML instead of JSON. Rate limit exceeded? Response: ${textResponse.slice(0, 100)}`,
-          );
-        }
-
-        const data = await response.json();
-
-        if (Array.isArray(data)) {
-          setCoins((prevCoins) =>
-            prevCoins.map((coin) => {
-              const matched = data.find((item: any) => item.id === coin.id);
-
-              if (matched) {
-                return {
-                  ...coin,
-                  current_price: matched.current_price || 0,
-                  price_change_percentage_24h:
-                    matched.price_change_percentage_24h || 0,
-                  image: matched.image || coin.image,
-                };
-              }
-=======
         const [prices, usdtInrRate] = await Promise.all([fetchCryptoPrices(), fetchUsdtInrRate()]);
 
         if (!mounted) return;
@@ -280,7 +237,6 @@ export default function BrowserScreen() {
         setCoins((prevCoins) =>
           prevCoins.map((coin) => {
             const marketData = prices?.[coin.id];
->>>>>>> 100801309c2c14972cc9c0abe6060549730082f7
 
             if (!marketData) {
               return coin;
@@ -304,18 +260,12 @@ export default function BrowserScreen() {
 
     fetchCryptoData();
 
-<<<<<<< HEAD
-    // Optional: Agar aap bar-bar fetch kar rahe hain toh interval laga sakte hain (e.g., 30 seconds)
-    // const interval = setInterval(fetchCryptoData, 30000);
-    // return () => clearInterval(interval);
-=======
     const interval = setInterval(fetchCryptoData, 30000);
 
     return () => {
       mounted = false;
       clearInterval(interval);
     };
->>>>>>> 100801309c2c14972cc9c0abe6060549730082f7
   }, [currency]);
 
   // Filtering

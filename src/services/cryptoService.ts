@@ -10,6 +10,9 @@ export interface TokenConfig {
   type: "native" | "token";
   network: keyof typeof NETWORKS;
   contractAddress?: string;
+
+  // Binance public market symbol
+  marketSymbol?: string;
 }
 
 export const NETWORKS = {
@@ -19,6 +22,7 @@ export const NETWORKS = {
     symbol: "BNB",
     chainId: 97,
   },
+
   localhost: {
     name: "Local Hardhat",
     rpcUrl: "http://192.168.1.34:8545",
@@ -37,7 +41,11 @@ export const TOKENS_CONFIG: TokenConfig[] = [
     color: "#627EEA",
     type: "native",
     network: "localhost",
+
+    // Binance market
+    marketSymbol: "ETHUSDT",
   },
+
   {
     id: "2",
     coingeckoId: "usd-coin",
@@ -48,130 +56,246 @@ export const TOKENS_CONFIG: TokenConfig[] = [
     type: "token",
     network: "localhost",
     contractAddress: "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+
+    // Binance market
+    marketSymbol: "USDCUSDT",
   },
 ];
 
-// ---- Global Standard ABIs ----
 const ERC20_ABI = [
   "function balanceOf(address owner) view returns (uint256)",
   "function decimals() view returns (uint8)",
 ];
 
+/**
+ * ----------------------------------------------------
+ * BINANCE PUBLIC MARKET DATA
+ * No API key required
+ * ----------------------------------------------------
+ */
+
+export interface CryptoPrice {
+  usd: number;
+  usd_24h_change: number;
+}
+
+/**
+ * Fetch crypto prices from Binance public API.
+ *
+ * Returns data in the same format that the old
+ * CoinGecko function returned so existing code
+ * does not need major changes.
+ */
 export async function fetchCryptoPrices() {
+  const symbols: Record<string, string> = {
+    bitcoin: "BTCUSDT",
+    ethereum: "ETHUSDT",
+    binancecoin: "BNBUSDT",
+    solana: "SOLUSDT",
+    ripple: "XRPUSDT",
+    cardano: "ADAUSDT",
+    dogecoin: "DOGEUSDT",
+    polkadot: "DOTUSDT",
+    "avalanche-2": "AVAXUSDT",
+    chainlink: "LINKUSDT",
+    "usd-coin": "USDCUSDT",
+  };
+
   try {
-    const ids = TOKENS_CONFIG.map((t) => t.coingeckoId).join(",");
-    const response = await fetch(
-      `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_change=true`,
-    );
-    const data = await response.json();
-    
-    if (!data || Object.keys(data).length === 0) {
-      throw new Error("Empty response from CoinGecko");
+    const response = await fetch("https://api.binance.com/api/v3/ticker/24hr", {
+      headers: {
+        Accept: "application/json",
+      },
+    });
+
+    console.log("Binance status:", response.status);
+
+    const text = await response.text();
+
+    if (!response.ok) {
+      throw new Error(`Binance API failed: ${response.status}`);
     }
-    
-    return data;
+
+    let data: any;
+
+    try {
+      data = JSON.parse(text);
+    } catch {
+      throw new Error("Binance returned invalid JSON");
+    }
+
+    if (!Array.isArray(data)) {
+      throw new Error("Invalid Binance market response");
+    }
+
+    const result: Record<
+      string,
+      {
+        usd: number;
+        usd_24h_change: number;
+      }
+    > = {};
+
+    Object.entries(symbols).forEach(([coinId, symbol]) => {
+      const ticker = data.find((item: any) => item.symbol === symbol);
+
+      if (!ticker) {
+        return;
+      }
+
+      result[coinId] = {
+        usd: Number(ticker.lastPrice),
+        usd_24h_change: Number(ticker.priceChangePercent),
+      };
+    });
+
+    console.log("Live crypto prices:", result);
+
+    return result;
   } catch (error) {
-    console.warn("Using development fallback prices due to API limit/network:", error);
-    return {
-      ethereum: { usd: 2648.50, usd_24h_change: 2.45 },
-      "usd-coin": { usd: 1.0, usd_24h_change: 0.0 },
-    };
+    console.error("Live market API error:", error);
+
+    return {};
+  }
+}
+export async function fetchUsdtInrRate(): Promise<number> {
+  try {
+    const response = await fetch("https://biquote.io/api/USDINR", {
+      headers: {
+        Accept: "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`USD/INR API failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    const rate = Number(data?.mid);
+
+    if (!Number.isFinite(rate) || rate <= 0) {
+      throw new Error("Invalid USD/INR rate");
+    }
+
+    console.log("Live USD/INR rate:", rate);
+
+    return rate;
+  } catch (error) {
+    console.error("Failed to fetch USD/INR rate:", error);
+
+    // Fallback only if live rate is unavailable
+    return 96;
   }
 }
 
-export const getNativeBalance = async (
+/**
+ * ----------------------------------------------------
+ * NETWORK PROVIDER
+ * ----------------------------------------------------
+ */
+
+function getProvider(network: keyof typeof NETWORKS): ethers.JsonRpcProvider {
+  const config = NETWORKS[network];
+
+  const provider = new ethers.JsonRpcProvider(config.rpcUrl, {
+    name: config.name,
+    chainId: config.chainId,
+  });
+
+  return provider;
+}
+
+/**
+ * ----------------------------------------------------
+ * NATIVE TOKEN BALANCE
+ * ----------------------------------------------------
+ */
+
+export async function getNativeBalance(
   address: string,
-  network: keyof typeof NETWORKS,
-): Promise<string> => {
+  network: keyof typeof NETWORKS = "localhost",
+): Promise<string> {
   try {
-    const netConfig = NETWORKS[network];
-    const customNetwork = new ethers.Network(netConfig.name, Number(netConfig.chainId));
-    (customNetwork as any).ensAddress = null;
+    const provider = getProvider(network);
 
-    const provider = new ethers.JsonRpcProvider(netConfig.rpcUrl, customNetwork, {
-      staticNetwork: true,
-    });
+    const balance = await provider.getBalance(address);
 
-    const balanceWei = await provider.getBalance(address);
-    return ethers.formatEther(balanceWei);
+    const formattedBalance = ethers.formatEther(balance);
+
+    console.log(`Fetched ${NETWORKS[network].symbol} Balance for ${address}:`, formattedBalance);
+
+    return formattedBalance;
   } catch (error) {
-    console.error(`Failed to fetch ${network} balance:`, error);
+    console.error(`Failed to fetch native balance for ${address}:`, error);
+
     return "0";
   }
-};
-
-export const getTokenBalance = async (
-  walletAddress: string,
-  tokenContractAddress: string,
-  network: keyof typeof NETWORKS,
-): Promise<string> => {
-  try {
-    const netConfig = NETWORKS[network];
-    const cleanTokenAddress = tokenContractAddress.trim();
-    const cleanWalletAddress = walletAddress.trim();
-
-    const customNetwork = new ethers.Network(netConfig.name, Number(netConfig.chainId));
-    (customNetwork as any).ensAddress = null;
-
-    const provider = new ethers.JsonRpcProvider(netConfig.rpcUrl, customNetwork, {
-      staticNetwork: true,
-    });
-
-    const contract = new ethers.Contract(cleanTokenAddress, ERC20_ABI, provider);
-
-    const [rawBalance, decimals] = await Promise.all([
-      contract.balanceOf(cleanWalletAddress),
-      contract.decimals(),
-    ]);
-
-    console.log(`Fetched Balance for ${cleanWalletAddress}:`, rawBalance.toString());
-
-    return ethers.formatUnits(rawBalance, decimals);
-  } catch (error) {
-    console.error("Failed to fetch token balance via ethers contract:", error);
-    return "0";
-  }
-};
-
-// ---- Send Transaction (Native Assets like ETH / BNB) ----
-export interface SendTransactionParams {
-  privateKey: string;
-  toAddress: string;
-  amount: string; // human-readable string (e.g. "0.1")
-  network: keyof typeof NETWORKS;
 }
 
-export async function sendNativeTransaction({
-  privateKey,
-  toAddress,
-  amount,
-  network,
-}: SendTransactionParams): Promise<string> {
+/**
+ * ----------------------------------------------------
+ * ERC20 TOKEN BALANCE
+ * ----------------------------------------------------
+ */
+
+export async function getTokenBalance(address: string, token: TokenConfig): Promise<string> {
   try {
-    const netConfig = NETWORKS[network];
-    const customNetwork = new ethers.Network(netConfig.name, Number(netConfig.chainId));
-    (customNetwork as any).ensAddress = null;
+    if (!token.contractAddress) {
+      throw new Error(`Contract address missing for ${token.symbol}`);
+    }
 
-    const provider = new ethers.JsonRpcProvider(netConfig.rpcUrl, customNetwork, {
-      staticNetwork: true,
-    });
+    const provider = getProvider(token.network);
 
-    // Initialize wallet with private key and provider
+    const contract = new ethers.Contract(token.contractAddress, ERC20_ABI, provider);
+
+    const balance = await contract.balanceOf(address);
+    const decimals = await contract.decimals();
+
+    const formattedBalance = ethers.formatUnits(balance, decimals);
+
+    console.log(`Fetched ${token.symbol} Balance for ${address}:`, formattedBalance);
+
+    return formattedBalance;
+  } catch (error) {
+    console.error(`Failed to fetch ${token.symbol} balance:`, error);
+
+    return "0";
+  }
+}
+
+/**
+ * ----------------------------------------------------
+ * SEND NATIVE TRANSACTION
+ * ----------------------------------------------------
+ */
+
+export async function sendNativeTransaction(
+  privateKey: string,
+  to: string,
+  amount: string,
+  network: keyof typeof NETWORKS = "localhost",
+) {
+  try {
+    const provider = getProvider(network);
+
     const wallet = new ethers.Wallet(privateKey, provider);
 
-    // Parse human readable amount into Wei
-    const valueWei = ethers.parseEther(amount);
-
-    // Broadcast transaction
-    const tx = await wallet.sendTransaction({
-      to: toAddress.trim(),
-      value: valueWei,
+    const transaction = await wallet.sendTransaction({
+      to,
+      value: ethers.parseEther(amount),
     });
 
-    console.log("Transaction broadcasted successfully:", tx.hash);
-    return tx.hash;
-  } catch (error: any) {
-    console.error("Failed to send transaction:", error);
-    throw new Error(error.reason || error.message || "Transaction failed");
+    console.log("Transaction submitted:", transaction.hash);
+
+    const receipt = await transaction.wait();
+
+    console.log("Transaction confirmed:", receipt?.hash);
+
+    return receipt;
+  } catch (error) {
+    console.error("Native transaction failed:", error);
+
+    throw error;
   }
 }

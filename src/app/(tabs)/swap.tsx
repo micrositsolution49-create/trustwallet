@@ -1,9 +1,18 @@
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { executeBlockchainTransaction } from "@/services/transactionService";
-import { useState, useEffect } from "react";
+import { useAuth } from "@/context/AuthContext";
+import { useWallet } from "@/context/WalletContext"; // WalletContext import kiya
 import {
-  Alert,
+  fetchCryptoPrices,
+  fetchUsdtInrRate,
+  getNativeBalance,
+  getTokenBalance,
+  TOKENS_CONFIG,
+} from "@/services/cryptoService";
+import { executeBlockchainTransaction } from "@/services/transactionService";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { useEffect, useState } from "react";
+import {
   ActivityIndicator,
+  Alert,
   StatusBar,
   StyleSheet,
   Text,
@@ -12,14 +21,6 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useAuth } from "@/context/AuthContext";
-import { useWallet } from "@/context/WalletContext"; // WalletContext import kiya
-import {
-  fetchCryptoPrices,
-  getNativeBalance,
-  getTokenBalance,
-  TOKENS_CONFIG,
-} from "@/services/cryptoService";
 
 export default function SwapScreen() {
   const { address } = useAuth();
@@ -44,10 +45,9 @@ export default function SwapScreen() {
 
   const [payAmount, setPayAmount] = useState("0.001");
   const [ethRate, setEthRate] = useState(2648.5);
+  const [usdtInrRate, setUsdtInrRate] = useState(88);
   const [loading, setLoading] = useState(false);
   const [swapping, setSwapping] = useState(false);
-
-  const USD_TO_INR = 83.5;
 
   const handleConfirmSwap = async () => {
     if (!address) {
@@ -66,7 +66,7 @@ export default function SwapScreen() {
     if (enteredAmount > availableBalance) {
       Alert.alert(
         "Insufficient Balance",
-        `Aapke paas sirf ${availableBalance} ${fromToken.symbol} available hai, lekin aap ${enteredAmount} ${fromToken.symbol} swap karne ki koshish kar rahe ho.`
+        `Aapke paas sirf ${availableBalance} ${fromToken.symbol} available hai, lekin aap ${enteredAmount} ${fromToken.symbol} swap karne ki koshish kar rahe ho.`,
       );
       return;
     }
@@ -86,7 +86,7 @@ export default function SwapScreen() {
         fromToken.symbol,
         toToken.symbol,
         enteredAmount,
-        addedReceiveAmount
+        addedReceiveAmount,
       );
 
       setFromToken((prev) => ({ ...prev, balance: remainingBalance }));
@@ -95,9 +95,9 @@ export default function SwapScreen() {
       Alert.alert(
         "🎉 Swap Successful!",
         `Successfully swapped ${payAmount} ${fromToken.symbol}.\n\n` +
-        `• New ${fromToken.symbol} Balance: ${remainingBalance}\n` +
-        `• New ${toToken.symbol} Balance: ${updatedToBalance}\n` +
-        `• Hash: ${txHash ? txHash.substring(0, 15) + "..." : "0x1293...abc"}`,
+          `• New ${fromToken.symbol} Balance: ${remainingBalance}\n` +
+          `• New ${toToken.symbol} Balance: ${updatedToBalance}\n` +
+          `• Hash: ${txHash ? txHash.substring(0, 15) + "..." : "0x1293...abc"}`,
         [
           {
             text: "OK",
@@ -105,14 +105,11 @@ export default function SwapScreen() {
               setPayAmount("0.0");
             },
           },
-        ]
+        ],
       );
     } catch (error: any) {
       console.error("Transaction failed:", error);
-      Alert.alert(
-        "Failed",
-        error.message || "Transaction could not be completed.",
-      );
+      Alert.alert("Failed", error.message || "Transaction could not be completed.");
     } finally {
       setSwapping(false);
     }
@@ -120,14 +117,31 @@ export default function SwapScreen() {
 
   const loadSwapData = async () => {
     if (!address) return;
+
     try {
       setLoading(true);
-      const prices = await fetchCryptoPrices();
+
+      const [prices, inrRate] = await Promise.all([fetchCryptoPrices(), fetchUsdtInrRate()]);
+
+      // -----------------------------
+      // Live ETH/USD price
+      // -----------------------------
       if (prices?.ethereum?.usd) {
-        setEthRate(prices.ethereum.usd);
+        setEthRate(Number(prices.ethereum.usd));
       }
 
+      // -----------------------------
+      // Live USD -> INR rate
+      // -----------------------------
+      if (Number.isFinite(inrRate) && inrRate > 0) {
+        setUsdtInrRate(Number(inrRate));
+      }
+
+      // -----------------------------
+      // ETH balance
+      // -----------------------------
       const ethBalance = await getNativeBalance(address, "localhost");
+
       if (ethBalance && !isNaN(Number(ethBalance))) {
         setFromToken((prev) => ({
           ...prev,
@@ -135,25 +149,35 @@ export default function SwapScreen() {
         }));
       }
 
+      // -----------------------------
+      // USDC balance
+      // -----------------------------
       const tokenConfig = TOKENS_CONFIG.find(
-        (t) => t.symbol === toToken.symbol || t.symbol === "USDC" || t.symbol === "USDT",
+        (token) => token.symbol.toUpperCase() === toToken.symbol.toUpperCase(),
       );
-      if (tokenConfig && tokenConfig.contractAddress) {
-        const tokenBalance = await getTokenBalance(
-          address,
-          tokenConfig.contractAddress,
-          "localhost",
-        );
+
+      if (tokenConfig) {
+        let tokenBalance = "0";
+
+        if (tokenConfig.type === "native") {
+          tokenBalance = await getNativeBalance(address, tokenConfig.network);
+        } else if (tokenConfig.contractAddress) {
+          // IMPORTANT:
+          // New getTokenBalance signature
+          tokenBalance = await getTokenBalance(address, tokenConfig);
+        }
+
         if (tokenBalance && !isNaN(Number(tokenBalance))) {
           setToToken((prev) => ({
             ...prev,
             symbol: tokenConfig.symbol,
+            name: tokenConfig.name,
             balance: parseFloat(tokenBalance).toFixed(2),
           }));
         }
       }
     } catch (err) {
-      console.error("Failed to load swap rates/balances", err);
+      console.error("Failed to load swap rates/balances:", err);
     } finally {
       setLoading(false);
     }
@@ -163,10 +187,25 @@ export default function SwapScreen() {
     loadSwapData();
   }, [address]);
 
-  const receiveAmount =
-    payAmount && !isNaN(Number(payAmount))
-      ? (parseFloat(payAmount) * ethRate).toFixed(2)
-      : "0.00";
+  const receiveAmount = (() => {
+    const amount = parseFloat(payAmount || "0");
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return "0.00";
+    }
+
+    // ETH -> USDC
+    if (fromToken.symbol.toUpperCase() === "ETH" && toToken.symbol.toUpperCase() === "USDC") {
+      return (amount * ethRate).toFixed(6);
+    }
+
+    // USDC -> ETH
+    if (fromToken.symbol.toUpperCase() === "USDC" && toToken.symbol.toUpperCase() === "ETH") {
+      return (amount / ethRate).toFixed(6);
+    }
+
+    return "0.00";
+  })();
 
   const handleSwitchTokens = () => {
     const temp = fromToken;
@@ -175,9 +214,9 @@ export default function SwapScreen() {
     setPayAmount("0.0");
   };
 
-  const usdValue =
-    parseFloat(payAmount || "0") * (fromToken.symbol === "ETH" ? ethRate : 1);
-  const inrValue = usdValue * USD_TO_INR;
+  const usdValue = parseFloat(payAmount || "0") * (fromToken.symbol === "ETH" ? ethRate : 1);
+
+  const inrValue = usdValue * usdtInrRate;
 
   return (
     <SafeAreaView style={styles.safeContainer}>
@@ -227,11 +266,7 @@ export default function SwapScreen() {
               numberOfLines={1}
             />
           </View>
-          <Text
-            style={styles.usdEquivalent}
-            numberOfLines={1}
-            ellipsizeMode="tail"
-          >
+          <Text style={styles.usdEquivalent} numberOfLines={1} ellipsizeMode="tail">
             ≈ $
             {usdValue.toLocaleString("en-US", {
               minimumFractionDigits: 2,
@@ -248,16 +283,13 @@ export default function SwapScreen() {
 
         {/* Swap Switcher Button */}
         <View style={styles.switchButtonWrapper}>
-          <TouchableOpacity
-            style={styles.switchButton}
-            onPress={handleSwitchTokens}
-          >
+          <TouchableOpacity style={styles.switchButton} onPress={handleSwitchTokens}>
             <Ionicons name="swap-vertical" size={20} color="#0090FF" />
           </TouchableOpacity>
         </View>
 
         {/* "To" Card */}
-        <View style={[styles.swapCard, { marginTop: -14 }]}>
+        <View style={[styles.swapCard]}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardLabel}>To</Text>
             <Text style={styles.balanceHint}>
@@ -266,11 +298,7 @@ export default function SwapScreen() {
           </View>
           <View style={styles.inputRow}>
             <TouchableOpacity style={styles.tokenPickerBtn}>
-              <MaterialCommunityIcons
-                name={toToken.icon as any}
-                size={22}
-                color={toToken.color}
-              />
+              <MaterialCommunityIcons name={toToken.icon as any} size={22} color={toToken.color} />
               <Text style={styles.tokenPickerText}>{toToken.symbol}</Text>
               <Ionicons name="chevron-down" size={16} color="#64748B" />
             </TouchableOpacity>
@@ -278,18 +306,14 @@ export default function SwapScreen() {
               {receiveAmount}
             </Text>
           </View>
-          <Text
-            style={styles.usdEquivalent}
-            numberOfLines={1}
-            ellipsizeMode="tail"
-          >
+          <Text style={styles.usdEquivalent} numberOfLines={1} ellipsizeMode="tail">
             ≈ $
             {parseFloat(receiveAmount).toLocaleString("en-US", {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
             })}{" "}
             (₹
-            {(parseFloat(receiveAmount) * USD_TO_INR).toLocaleString("en-IN", {
+            {(parseFloat(receiveAmount) * usdtInrRate).toLocaleString("en-IN", {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
             })}
@@ -307,7 +331,14 @@ export default function SwapScreen() {
           </View>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Gas Fee estimate</Text>
-            <Text style={styles.summaryValue}>~$0.85 USD (~₹70.98)</Text>
+            <Text style={styles.summaryValue}>
+              ~${(0.85).toFixed(2)} USD (~₹
+              {(0.85 * usdtInrRate).toLocaleString("en-IN", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+              )
+            </Text>
           </View>
         </View>
 

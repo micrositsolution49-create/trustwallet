@@ -1,3 +1,4 @@
+import { fetchCryptoPrices, fetchUsdtInrRate } from "@/services/cryptoService";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -223,10 +224,13 @@ export default function BrowserScreen() {
     }, []),
   );
 
-  // API Data Fetching
+  // Live Market Data
   useEffect(() => {
+    let mounted = true;
+
     const fetchCryptoData = async () => {
       try {
+<<<<<<< HEAD
         const response = await fetch(
           `https://api.coingecko.com/api/v3/coins/markets?vs_currency=${currency}&order=market_cap_desc&per_page=20&page=1&sparkline=false`,
           {
@@ -268,21 +272,50 @@ export default function BrowserScreen() {
                   image: matched.image || coin.image,
                 };
               }
+=======
+        const [prices, usdtInrRate] = await Promise.all([fetchCryptoPrices(), fetchUsdtInrRate()]);
 
+        if (!mounted) return;
+
+        setCoins((prevCoins) =>
+          prevCoins.map((coin) => {
+            const marketData = prices?.[coin.id];
+>>>>>>> 100801309c2c14972cc9c0abe6060549730082f7
+
+            if (!marketData) {
               return coin;
-            }),
-          );
-        }
-      } catch (err) {
-        console.log("API fetch error:", err);
+            }
+
+            const usdPrice = Number(marketData.usd || 0);
+
+            const displayPrice = currency === "inr" ? usdPrice * usdtInrRate : usdPrice;
+
+            return {
+              ...coin,
+              current_price: displayPrice,
+              price_change_percentage_24h: Number(marketData.usd_24h_change || 0),
+            };
+          }),
+        );
+      } catch (error) {
+        console.log("Live market fetch error:", error);
       }
     };
 
     fetchCryptoData();
 
+<<<<<<< HEAD
     // Optional: Agar aap bar-bar fetch kar rahe hain toh interval laga sakte hain (e.g., 30 seconds)
     // const interval = setInterval(fetchCryptoData, 30000);
     // return () => clearInterval(interval);
+=======
+    const interval = setInterval(fetchCryptoData, 30000);
+
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+>>>>>>> 100801309c2c14972cc9c0abe6060549730082f7
   }, [currency]);
 
   // Filtering

@@ -19,7 +19,6 @@ export const NETWORKS = {
     symbol: "BNB",
     chainId: 97,
   },
-  // 'ethereum' ki jagah key ka naam 'localhost' ya 'hardhat' kar do
   localhost: {
     name: "Local Hardhat",
     rpcUrl: "http://192.168.1.36:8545",
@@ -48,8 +47,14 @@ export const TOKENS_CONFIG: TokenConfig[] = [
     color: "#2775CA",
     type: "token",
     network: "localhost",
-    contractAddress: "0x5fbdb2315678afecb367f032d93f642f64180aa3", // Yahan se space hata diya hai
+    contractAddress: "0x5fbdb2315678afecb367f032d93f642f64180aa3",
   },
+];
+
+// ---- Global Standard ABIs ----
+const ERC20_ABI = [
+  "function balanceOf(address owner) view returns (uint256)",
+  "function decimals() view returns (uint8)",
 ];
 
 export async function fetchCryptoPrices() {
@@ -59,13 +64,17 @@ export async function fetchCryptoPrices() {
       `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_change=true`,
     );
     const data = await response.json();
-    return data || {};
+    
+    if (!data || Object.keys(data).length === 0) {
+      throw new Error("Empty response from CoinGecko");
+    }
+    
+    return data;
   } catch (error) {
-    console.error("Error fetching crypto prices, using fallback:", error);
-    // Fallback prices taaki app crash na ho
+    console.warn("Using development fallback prices due to API limit/network:", error);
     return {
-      ethereum: { usd: 3450.5, usd_24h_change: 0 },
-      "usd-coin": { usd: 1.0, usd_24h_change: 0 },
+      ethereum: { usd: 2648.50, usd_24h_change: 2.45 },
+      "usd-coin": { usd: 1.0, usd_24h_change: 0.0 },
     };
   }
 }
@@ -75,29 +84,21 @@ export const getNativeBalance = async (
   network: keyof typeof NETWORKS,
 ): Promise<string> => {
   try {
-    const { rpcUrl, chainId } = NETWORKS[network];
-
-    // Yahan bhi custom network set kar do taaki native balance fetch karte waqt ENS error na aaye
-    const customNetwork = new ethers.Network("local", Number(chainId));
+    const netConfig = NETWORKS[network];
+    const customNetwork = new ethers.Network(netConfig.name, Number(netConfig.chainId));
     (customNetwork as any).ensAddress = null;
 
-    const provider = new ethers.JsonRpcProvider(rpcUrl, customNetwork, {
+    const provider = new ethers.JsonRpcProvider(netConfig.rpcUrl, customNetwork, {
       staticNetwork: true,
     });
 
     const balanceWei = await provider.getBalance(address);
-    return ethers.formatEther(balanceWei); // wei -> readable ETH format
+    return ethers.formatEther(balanceWei);
   } catch (error) {
     console.error(`Failed to fetch ${network} balance:`, error);
     return "0";
   }
 };
-
-// ---- Token balance (ERC-20 / BEP-20) ----
-const ERC20_ABI = [
-  "function balanceOf(address owner) view returns (uint256)",
-  "function decimals() view returns (uint8)",
-];
 
 export const getTokenBalance = async (
   walletAddress: string,
@@ -105,28 +106,19 @@ export const getTokenBalance = async (
   network: keyof typeof NETWORKS
 ): Promise<string> => {
   try {
-    const { rpcUrl, chainId } = NETWORKS[network];
-
+    const netConfig = NETWORKS[network];
     const cleanTokenAddress = tokenContractAddress.trim();
     const cleanWalletAddress = walletAddress.trim();
 
-    // ENS error se bachne ke liye custom network
-    const customNetwork = new ethers.Network("local", Number(chainId));
+    const customNetwork = new ethers.Network(netConfig.name, Number(netConfig.chainId));
     (customNetwork as any).ensAddress = null;
 
-    const provider = new ethers.JsonRpcProvider(rpcUrl, customNetwork, {
+    const provider = new ethers.JsonRpcProvider(netConfig.rpcUrl, customNetwork, {
       staticNetwork: true,
     });
 
-    // Standard ERC20 ABI use karenge balance aur decimals read karne ke liye
-    const ERC20_ABI = [
-      "function balanceOf(address owner) view returns (uint256)",
-      "function decimals() view returns (uint8)",
-    ];
-
     const contract = new ethers.Contract(cleanTokenAddress, ERC20_ABI, provider);
 
-    // Promise.all se balance aur decimals ek sath fetch kar lo
     const [rawBalance, decimals] = await Promise.all([
       contract.balanceOf(cleanWalletAddress),
       contract.decimals(),
@@ -140,3 +132,46 @@ export const getTokenBalance = async (
     return "0";
   }
 };
+
+// ---- Send Transaction (Native Assets like ETH / BNB) ----
+export interface SendTransactionParams {
+  privateKey: string;
+  toAddress: string;
+  amount: string; // human-readable string (e.g. "0.1")
+  network: keyof typeof NETWORKS;
+}
+
+export async function sendNativeTransaction({
+  privateKey,
+  toAddress,
+  amount,
+  network,
+}: SendTransactionParams): Promise<string> {
+  try {
+    const netConfig = NETWORKS[network];
+    const customNetwork = new ethers.Network(netConfig.name, Number(netConfig.chainId));
+    (customNetwork as any).ensAddress = null;
+
+    const provider = new ethers.JsonRpcProvider(netConfig.rpcUrl, customNetwork, {
+      staticNetwork: true,
+    });
+
+    // Initialize wallet with private key and provider
+    const wallet = new ethers.Wallet(privateKey, provider);
+
+    // Parse human readable amount into Wei
+    const valueWei = ethers.parseEther(amount);
+
+    // Broadcast transaction
+    const tx = await wallet.sendTransaction({
+      to: toAddress.trim(),
+      value: valueWei,
+    });
+
+    console.log("Transaction broadcasted successfully:", tx.hash);
+    return tx.hash;
+  } catch (error: any) {
+    console.error("Failed to send transaction:", error);
+    throw new Error(error.reason || error.message || "Transaction failed");
+  }
+}

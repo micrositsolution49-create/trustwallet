@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
-import { getStoredWallet } from '@/services/walletService';
+import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
+import { getStoredWallet } from "@/services/walletService";
 
 interface AuthContextType {
   hasWallet: boolean;
@@ -27,14 +27,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [address, setAddress] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
 
-  // Re-checks SecureStore for a wallet. Never touches `unlocked` —
-  // unlocked is only ever flipped true by a successful PIN/biometric check.
   const refresh = useCallback(async () => {
-    const storedAddress = await getStoredWallet();
-    setHasWallet(!!storedAddress);
-    setAddress(storedAddress);
-    setIsReady(true);
+    try {
+      const storedAddress = await getStoredWallet();
+      setHasWallet(!!storedAddress);
+      setAddress(storedAddress);
+    } catch (error) {
+      console.error("Failed to load stored wallet:", error);
+    } finally {
+      setIsReady(true); // Ensures isReady always flips to true even if storage fails
+    }
   }, []);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
 
   const unlock = useCallback(() => setUnlocked(true), []);
   const lock = useCallback(() => setUnlocked(false), []);

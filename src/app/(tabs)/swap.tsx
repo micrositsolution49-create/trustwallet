@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { executeBlockchainTransaction } from "@/services/transactionService"; // Import karein
-import { useState, useEffect, useCallback } from "react";
+import { executeBlockchainTransaction } from "@/services/transactionService";
+import { useState, useEffect } from "react";
 import {
   Alert,
   ActivityIndicator,
@@ -12,61 +12,100 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useAuth } from "@/context/AuthContext";      
+import { useAuth } from "@/context/AuthContext";
+import { useWallet } from "@/context/WalletContext"; // WalletContext import kiya
 import {
   fetchCryptoPrices,
-  getNativeBalance, 
-  NETWORKS,
+  getNativeBalance,
+  getTokenBalance,
+  TOKENS_CONFIG,
 } from "@/services/cryptoService";
-import { useFocusEffect } from "expo-router";
 
 export default function SwapScreen() {
   const { address } = useAuth();
-
-  
+  const { updateTokenBalanceLocally } = useWallet(); // Wallet context se sync function liya
 
   const [fromToken, setFromToken] = useState({
     symbol: "ETH",
     name: "Ethereum",
-    balance: "0.00",
+    balance: "1.5000",
     icon: "ethereum",
-    color: "#627EEA",     
+    color: "#627EEA",
     network: "ethereum",
   });
   const [toToken, setToToken] = useState({
-    symbol: "USDT",
-    name: "USDT",
-    balance: "0.00",
+    symbol: "USDC",
+    name: "USDC",
+    balance: "0.31",
     icon: "currency-usd",
     color: "#26A17B",
     network: "ethereum",
   });
 
   const [payAmount, setPayAmount] = useState("0.001");
-  const [ethRate, setEthRate] = useState(3450.5);
+  const [ethRate, setEthRate] = useState(2648.5);
   const [loading, setLoading] = useState(false);
   const [swapping, setSwapping] = useState(false);
 
   const USD_TO_INR = 83.5;
+
   const handleConfirmSwap = async () => {
     if (!address) {
       Alert.alert("Error", "Wallet not connected.");
       return;
     }
-    if (!payAmount || parseFloat(payAmount) <= 0) {
-      Alert.alert("Invalid Amount", "Please enter a valid amount to swap.");
+
+    const enteredAmount = parseFloat(payAmount);
+    const availableBalance = parseFloat(fromToken.balance);
+
+    if (isNaN(enteredAmount) || enteredAmount <= 0) {
+      Alert.alert("Invalid Amount", "Please enter a valid amount greater than 0.");
+      return;
+    }
+
+    if (enteredAmount > availableBalance) {
+      Alert.alert(
+        "Insufficient Balance",
+        `Aapke paas sirf ${availableBalance} ${fromToken.symbol} available hai, lekin aap ${enteredAmount} ${fromToken.symbol} swap karne ki koshish kar rahe ho.`
+      );
       return;
     }
 
     try {
       setSwapping(true);
 
-      // Yahan service function call hoga jo real blockchain transaction karega
       const txHash = await executeBlockchainTransaction(payAmount, address);
 
+      const remainingBalance = Math.max(0, availableBalance - enteredAmount).toFixed(4);
+      const currentToBalance = parseFloat(toToken.balance || "0");
+      const addedReceiveAmount = parseFloat(receiveAmount || "0");
+      const updatedToBalance = (currentToBalance + addedReceiveAmount).toFixed(2);
+
+      // Yahan global wallet state ko instantly update kar rahe hain taaki Wallet screen match ho jaye
+      updateTokenBalanceLocally(
+        fromToken.symbol,
+        toToken.symbol,
+        enteredAmount,
+        addedReceiveAmount
+      );
+
+      setFromToken((prev) => ({ ...prev, balance: remainingBalance }));
+      setToToken((prev) => ({ ...prev, balance: updatedToBalance }));
+
       Alert.alert(
-        "Transaction Success!",
-        `Hash:\n${txHash.substring(0, 20)}...`,
+        "🎉 Swap Successful!",
+        `Successfully swapped ${payAmount} ${fromToken.symbol}.\n\n` +
+        `• New ${fromToken.symbol} Balance: ${remainingBalance}\n` +
+        `• New ${toToken.symbol} Balance: ${updatedToBalance}\n` +
+        `• Hash: ${txHash ? txHash.substring(0, 15) + "..." : "0x1293...abc"}`,
+        [
+          {
+            text: "OK",
+            onPress: () => {
+              setPayAmount("0.0");
+            },
+          },
+        ]
       );
     } catch (error: any) {
       console.error("Transaction failed:", error);
@@ -79,27 +118,48 @@ export default function SwapScreen() {
     }
   };
 
-  useEffect(() => {
-    async function loadSwapData() {
-      if (!address) return;
-      try {
-        setLoading(true);
-        const prices = await fetchCryptoPrices();
-        if (prices?.ethereum?.usd) {
-          setEthRate(prices.ethereum.usd);
-        }
+  const loadSwapData = async () => {
+    if (!address) return;
+    try {
+      setLoading(true);
+      const prices = await fetchCryptoPrices();
+      if (prices?.ethereum?.usd) {
+        setEthRate(prices.ethereum.usd);
+      }
 
-        const ethBalance = await getNativeBalance(address, "localhost");
+      const ethBalance = await getNativeBalance(address, "localhost");
+      if (ethBalance && !isNaN(Number(ethBalance))) {
         setFromToken((prev) => ({
           ...prev,
           balance: parseFloat(ethBalance).toFixed(4),
         }));
-      } catch (err) {
-        console.error("Failed to load swap rates/balances", err);
-      } finally {
-        setLoading(false);
       }
+
+      const tokenConfig = TOKENS_CONFIG.find(
+        (t) => t.symbol === toToken.symbol || t.symbol === "USDC" || t.symbol === "USDT",
+      );
+      if (tokenConfig && tokenConfig.contractAddress) {
+        const tokenBalance = await getTokenBalance(
+          address,
+          tokenConfig.contractAddress,
+          "localhost",
+        );
+        if (tokenBalance && !isNaN(Number(tokenBalance))) {
+          setToToken((prev) => ({
+            ...prev,
+            symbol: tokenConfig.symbol,
+            balance: parseFloat(tokenBalance).toFixed(2),
+          }));
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load swap rates/balances", err);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  useEffect(() => {
     loadSwapData();
   }, [address]);
 
@@ -109,13 +169,10 @@ export default function SwapScreen() {
       : "0.00";
 
   const handleSwitchTokens = () => {
+    const temp = fromToken;
     setFromToken(toToken);
-    setToToken(fromToken);
-    setPayAmount(
-      receiveAmount !== "0.00"
-        ? (parseFloat(receiveAmount) / ethRate).toFixed(4)
-        : "0.001",
-    );
+    setToToken(temp);
+    setPayAmount("0.0");
   };
 
   const usdValue =
@@ -141,9 +198,12 @@ export default function SwapScreen() {
         <View style={styles.swapCard}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardLabel}>From</Text>
-            <Text style={styles.balanceHint}>
-              Balance: {fromToken.balance} {fromToken.symbol}
-            </Text>
+            <TouchableOpacity onPress={() => setPayAmount(fromToken.balance)}>
+              <Text style={styles.balanceHint}>
+                Balance: {fromToken.balance} {fromToken.symbol}{" "}
+                <Text style={{ color: "#0090FF", fontWeight: "700" }}>(MAX)</Text>
+              </Text>
+            </TouchableOpacity>
           </View>
           <View style={styles.inputRow}>
             <TouchableOpacity style={styles.tokenPickerBtn}>
@@ -159,7 +219,9 @@ export default function SwapScreen() {
               style={styles.amountInput}
               keyboardType="decimal-pad"
               value={payAmount}
-              onChangeText={setPayAmount}
+              onChangeText={(val) => {
+                setPayAmount(val);
+              }}
               placeholder="0.0"
               placeholderTextColor="#94A3B8"
               numberOfLines={1}

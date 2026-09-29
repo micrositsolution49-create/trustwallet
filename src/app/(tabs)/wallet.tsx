@@ -1,6 +1,10 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useCallback, useEffect, useState } from "react";
+import { useRouter } from "expo-router";
+import React, { useState } from "react";
+import QRCode from "react-native-qrcode-svg";
+// import * as Sharing from "expo-sharing";
+import { Color } from "expo-router";
 import {
   Alert,
   Modal,
@@ -13,123 +17,19 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as Clipboard from "expo-clipboard";
-import { useRouter } from "expo-router";
-import {
-  fetchCryptoPrices,
-  getNativeBalance,
-  getTokenBalance,
-  TOKENS_CONFIG,
-  TokenConfig,
-} from "@/services/cryptoService";
 import { useAuth } from "@/context/AuthContext";
-import { useFocusEffect } from "expo-router";
-
-interface DisplayToken extends TokenConfig {
-  rawBalance: string;
-  balanceUSD: string;
-  price: number;
-  change: string;
-  isUp: boolean;  
-}
+import { useWallet } from "@/context/WalletContext";
+import { Colors } from "@/constants/Colors";
 
 export default function WalletScreen() {
   const { address } = useAuth();
   const router = useRouter();
+  const { tokens, totalBalanceUSD, loading, lastUpdated, loadWalletData } =
+    useWallet();
 
-  const [tokens, setTokens] = useState<DisplayToken[]>([]);
-  const [totalBalanceUSD, setTotalBalanceUSD] = useState("$0.00");
-  const [loading, setLoading] = useState(true);
-  const [lastUpdated, setLastUpdated] = useState<string>("");
-  const [walletModalVisible, setWalletModalVisible] = useState(false);
+  const [receiveModalVisible, setReceiveModalVisible] = useState(false);
+  const [detailsModalVisible, setDetailsModalVisible] = useState(false);
   const [copied, setCopied] = useState(false);
-
-  const loadWalletData = useCallback(
-    async (isBackground = false) => {
-      if (!address) return;
-      if (!isBackground) setLoading(true);
-
-      try {
-        const prices = await fetchCryptoPrices();
-
-        const results = await Promise.all(
-          TOKENS_CONFIG.map(async (token) => {
-            const rawBalance =
-              token.type === "native"
-                ? await getNativeBalance(address, token.network)
-                : await getTokenBalance(
-                    address,
-                    token.contractAddress!,
-                    token.network,
-                  );
-
-            const marketData = prices?.[token.coingeckoId];
-            let price = marketData ? marketData.usd : 0;
-            
-            // ROBUST FIX: Agar token USDC hai toh explicitly 1.0 set karo agar price 0 hai
-            if (
-              token.symbol?.toUpperCase() === "USDC" || 
-              token.name?.toLowerCase().includes("usd coin")
-            ) {
-              price = price > 0 ? price : 1.0;
-            }
-
-            const priceChange = marketData ? marketData.usd_24h_change : 0;
-            const balanceNum = parseFloat(rawBalance) || 0;
-            const balanceUSDNum = balanceNum * price; 
-
-            return {
-              ...token,
-              rawBalance, 
-              price,
-              balanceUSD: `$${balanceUSDNum.toLocaleString("en-US", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 4,
-              })}`,
-              change: `${priceChange >= 0 ? "+" : ""}${priceChange.toFixed(2)}%`,
-              isUp: priceChange >= 0,
-              _usdValue: balanceUSDNum,
-            };
-          }),
-        );
-
-        const total = results.reduce((sum, t) => sum + (t as any)._usdValue, 0);
-
-        setTokens(results);
-        setTotalBalanceUSD(
-          `$${total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-        );
-        setLastUpdated(new Date().toLocaleTimeString());
-      } catch (error) {
-        console.error("Failed to load wallet data:", error);
-        if (!isBackground) {
-          Alert.alert(
-            "Error",
-            "Couldn't load balances. Check your connection and try again.",
-          );
-        }
-      } finally {
-        if (!isBackground) setLoading(false);
-      }
-    },
-    [address],
-  );
-
-  useFocusEffect(
-    useCallback(() => {
-      loadWalletData();
-    }, [loadWalletData]),
-  );
-
-  useEffect(() => {
-    if (!address) return;
-    loadWalletData();
-
-    const interval = setInterval(() => {
-      loadWalletData(true);
-    }, 15000); // 15s — public RPCs rate-limit aggressively, don't go faster than this
-
-    return () => clearInterval(interval);
-  }, [address, loadWalletData]);
 
   const handleCopyAddress = async () => {
     if (!address) return;
@@ -143,7 +43,7 @@ export default function WalletScreen() {
       <StatusBar barStyle="light-content" />
 
       <LinearGradient
-        colors={["#07162C", "#0E335E", "#0B5997"]}
+        colors={["#333334", "#0e1114", "#000000"]}
         style={styles.headerGradient}
       >
         <View style={styles.topNav}>
@@ -154,7 +54,7 @@ export default function WalletScreen() {
             <Ionicons name="reload-outline" size={22} color="#FFF" />
           </TouchableOpacity>
           <Text style={styles.navTitle}>Wallet</Text>
-          <TouchableOpacity onPress={() => setWalletModalVisible(true)}>
+          <TouchableOpacity onPress={() => setDetailsModalVisible(true)}>
             <Ionicons
               name="shield-checkmark-outline"
               size={22}
@@ -166,7 +66,7 @@ export default function WalletScreen() {
         <View style={styles.balanceSection}>
           <Text style={styles.walletLabel}>My Secure Wallet</Text>
           <Text style={styles.totalBalance}>
-            {loading ? "Loading..." : totalBalanceUSD}
+            {loading && tokens.length === 0 ? "Loading..." : totalBalanceUSD}
           </Text>
 
           <View style={styles.growthBadge}>
@@ -180,8 +80,12 @@ export default function WalletScreen() {
         </View>
 
         <View style={styles.actionsRow}>
-          <ActionButton name="arrow-up" label="Send" />
-          <ActionButton name="arrow-down" label="Receive" />
+          <ActionButton name="arrow-up" label="Send" onPress={()=> router.push("../send")}  />
+          <ActionButton
+            name="arrow-down"
+            label="Receive"
+            onPress={() => setReceiveModalVisible(true)}
+          />
           <ActionButton name="card-outline" label="Buy" />
           <ActionButton
             name="swap-horizontal"
@@ -191,10 +95,75 @@ export default function WalletScreen() {
         </View>
       </LinearGradient>
 
+      {/* Receive Modal (QR Code & Address) */}
+      <Modal
+        animationType="slide"
+        transparent
+        visible={receiveModalVisible}
+        onRequestClose={() => setReceiveModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Receive Crypto</Text>
+              <TouchableOpacity onPress={() => setReceiveModalVisible(false)}>
+                <Ionicons name="close" size={24} color="#0F172A" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalSubtitle}>
+              Send only Ethereum or supported tokens to this address. Sending
+              other assets may result in permanent loss.
+            </Text>
+
+            {/* QR Code Container */}
+            <View style={styles.qrContainer}>
+              {address ? (
+                <QRCode
+                  value={address}
+                  size={180}
+                  color="#0F172A"
+                  backgroundColor="#FFFFFF"
+                />
+              ) : (
+                <Text style={{ color: "#64748B" }}>Loading Address...</Text>
+              )}
+            </View>
+
+            <View style={styles.walletDetailsBox}>
+              <Text style={styles.detailLabel}>Your Public Address</Text>
+              <Text style={styles.detailValue} selectable>
+                {address}
+              </Text>
+
+              <View style={styles.modalActionRow}>
+                <TouchableOpacity
+                  style={styles.actionBtnStyle}
+                  onPress={handleCopyAddress}
+                >
+                  <Ionicons
+                    name={copied ? "checkmark" : "copy-outline"}
+                    size={16}
+                    color="#0284C7"
+                  />
+                  <Text style={styles.copyBtnText}>
+                    {copied ? "Copied!" : "Copy"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <Text style={styles.seedHint}>
+              Need to view your recovery phrase? Go to Settings → Security.
+            </Text>
+          </View>
+        </View>
+      </Modal>
+
       <View style={styles.assetsContainer}>
         <View style={styles.assetsHeader}>
           <Text style={styles.assetsTitle}>Assets</Text>
-          <TouchableOpacity onPress={() => setWalletModalVisible(true)}>
+          <TouchableOpacity onPress={() => setDetailsModalVisible(true)}>
             <Text style={styles.createWalletLink}>Wallet Details</Text>
           </TouchableOpacity>
         </View>
@@ -203,39 +172,49 @@ export default function WalletScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 100 }}
         >
-          {tokens.map((token) => (
-            <View key={token.id} style={styles.tokenRow}>
-              <View
-                style={[
-                  styles.tokenIconWrapper,
-                  { backgroundColor: `${token.color}20` },
-                ]}
-              >
-                <MaterialCommunityIcons
-                  name={token.icon as any}
-                  size={24}
-                  color={token.color}
-                />
-              </View>
+          {tokens.map((token) => {
+            const numericBalance = parseFloat(token.rawBalance || "0");
+            const formattedBalance =
+              numericBalance === 0 ? "0.00" : numericBalance.toFixed(4);
 
-              <View style={styles.tokenInfo}>
-                <Text style={styles.tokenName}>{token.name}</Text>
-                <Text
+            return (
+              <View key={token.id} style={styles.tokenRow}>
+                <View
                   style={[
-                    styles.tokenChange,
-                    { color: token.isUp ? "#00C087" : "#FF4D4F" },
+                    styles.tokenIconWrapper,
+                    { backgroundColor: `${token.color}20` },
                   ]}
                 >
-                  {parseFloat(token.rawBalance).toFixed(4)} {token.symbol} ·{" "}
-                  {token.change}
-                </Text>
-              </View>
+                  <MaterialCommunityIcons
+                    name={token.icon as any}
+                    size={24}
+                    color={token.color}
+                  />
+                </View>
 
-              <View style={styles.tokenPriceCol}>
-                <Text style={styles.tokenAmount}>{token.balanceUSD}</Text>
+                {/* Token Name and Balance Row */}
+                <View style={styles.tokenInfo}>
+                  <Text style={styles.tokenName}>{token.name}</Text>
+                  <Text style={styles.tokenBalanceText}>
+                    {formattedBalance} {token.symbol}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.tokenChange,
+                      { color: token.isUp ? "#00C087" : "#FF4D4F" },
+                    ]}
+                  >
+                    {token.change}
+                  </Text>
+                </View>
+
+                {/* Right side USD Value */}
+                <View style={styles.tokenPriceCol}>
+                  <Text style={styles.tokenAmount}>{token.balanceUSD}</Text>
+                </View>
               </View>
-            </View>
-          ))}
+            );
+          })}
 
           {!loading && tokens.length === 0 && (
             <Text style={styles.emptyText}>No balances found yet.</Text>
@@ -243,18 +222,18 @@ export default function WalletScreen() {
         </ScrollView>
       </View>
 
-      {/* Wallet Details Modal */}
+      {/* Wallet Details Modal (Only Details) */}
       <Modal
         animationType="slide"
         transparent
-        visible={walletModalVisible}
-        onRequestClose={() => setWalletModalVisible(false)}
+        visible={detailsModalVisible}
+        onRequestClose={() => setDetailsModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Wallet Details</Text>
-              <TouchableOpacity onPress={() => setWalletModalVisible(false)}>
+              <TouchableOpacity onPress={() => setDetailsModalVisible(false)}>
                 <Ionicons name="close" size={24} color="#0F172A" />
               </TouchableOpacity>
             </View>
@@ -313,7 +292,7 @@ function ActionButton({ name, label, onPress }: ActionButtonProps) {
 }
 
 const styles = StyleSheet.create({
-  safeContainer: { flex: 1, backgroundColor: "#07162C" },
+  safeContainer: { flex: 1, backgroundColor: "#fafafa" },
   headerGradient: {
     paddingHorizontal: 20,
     paddingTop: 12,
@@ -329,7 +308,7 @@ const styles = StyleSheet.create({
   },
   navTitle: { color: "#FFF", fontSize: 18, fontWeight: "600" },
   balanceSection: { alignItems: "center", marginVertical: 10 },
-  walletLabel: { color: "#A0B3D6", fontSize: 14, marginBottom: 6 },
+  walletLabel: { color: "#fcfdff", fontSize: 14, marginBottom: 6 },
   totalBalance: {
     color: "#FFF",
     fontSize: 34,
@@ -339,7 +318,7 @@ const styles = StyleSheet.create({
   growthBadge: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(0, 209, 143, 0.15)",
+    backgroundColor: "rgba(6, 23, 18, 0.15)",
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
@@ -381,6 +360,30 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 16,
   },
+  qrContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F8FAFC",
+    padding: 16,
+    borderRadius: 16,
+    marginVertical: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  modalActionRow: {
+    flexDirection: "row",
+    marginTop: 12,
+    justifyContent: "flex-start",
+  },
+  actionBtnStyle: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#E0F2FE",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 6,
+  },
   assetsTitle: { fontSize: 18, fontWeight: "700", color: "#0F172A" },
   createWalletLink: { fontSize: 13, color: "#0284C7", fontWeight: "600" },
   tokenRow: {
@@ -400,7 +403,8 @@ const styles = StyleSheet.create({
   },
   tokenInfo: { flex: 1 },
   tokenName: { fontSize: 16, fontWeight: "600", color: "#0F172A" },
-  tokenChange: { fontSize: 13, marginTop: 2 },
+  tokenBalanceText: { fontSize: 13, color: "#64748B", marginTop: 2 },
+  tokenChange: { fontSize: 12, marginTop: 1, fontWeight: "500" },
   tokenPriceCol: { alignItems: "flex-end" },
   tokenAmount: { fontSize: 16, fontWeight: "600", color: "#0F172A" },
   emptyText: {

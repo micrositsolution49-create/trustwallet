@@ -80,7 +80,7 @@ export default function WalletScreen() {
         </View>
 
         <View style={styles.actionsRow}>
-          <ActionButton name="arrow-up" label="Send" onPress={()=> router.push("../send")}  />
+          <ActionButton name="arrow-up" label="Send" onPress={()=> router.push("/send")}  />
           <ActionButton
             name="arrow-down"
             label="Receive"

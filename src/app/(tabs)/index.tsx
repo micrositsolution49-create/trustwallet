@@ -48,7 +48,8 @@ const INITIAL_COINS: CryptoCoin[] = [
     symbol: "bnb",
     current_price: 0,
     price_change_percentage_24h: 0,
-    image: "https://assets.coingecko.com/coins/images/825/large/bnb-icon2_2x.png",
+    image:
+      "https://assets.coingecko.com/coins/images/825/large/bnb-icon2_2x.png",
   },
   {
     id: "solana",
@@ -64,7 +65,8 @@ const INITIAL_COINS: CryptoCoin[] = [
     symbol: "xrp",
     current_price: 0,
     price_change_percentage_24h: 0,
-    image: "https://assets.coingecko.com/coins/images/44/large/xrp-symbol-white-128.png",
+    image:
+      "https://assets.coingecko.com/coins/images/44/large/xrp-symbol-white-128.png",
   },
   {
     id: "cardano",
@@ -105,12 +107,15 @@ const INITIAL_COINS: CryptoCoin[] = [
     symbol: "link",
     current_price: 0,
     price_change_percentage_24h: 0,
-    image: "https://assets.coingecko.com/coins/images/877/large/chainlink-new-logo.png",
+    image:
+      "https://assets.coingecko.com/coins/images/877/large/chainlink-new-logo.png",
   },
 ];
 
 export default function BrowserScreen() {
-  const [activeSegment, setActiveSegment] = useState<"Home" | "Discover">("Home");
+  const [activeSegment, setActiveSegment] = useState<"Home" | "Discover">(
+    "Home",
+  );
 
   const [coins, setCoins] = useState<CryptoCoin[]>(INITIAL_COINS);
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -155,7 +160,10 @@ export default function BrowserScreen() {
 
       setWatchlist(updatedWatchlist);
 
-      await AsyncStorage.setItem("@crypto_watchlist", JSON.stringify(updatedWatchlist));
+      await AsyncStorage.setItem(
+        "@crypto_watchlist",
+        JSON.stringify(updatedWatchlist),
+      );
     } catch (err) {
       console.log("Failed to save watchlist:", err);
     }
@@ -221,7 +229,28 @@ export default function BrowserScreen() {
       try {
         const response = await fetch(
           `https://api.coingecko.com/api/v3/coins/markets?vs_currency=${currency}&order=market_cap_desc&per_page=20&page=1&sparkline=false`,
+          {
+            headers: {
+              Accept: "application/json",
+              // Agar aapke paas CoinGecko ki Demo/Pro API key hai toh yahan header me pass kar sakte hain:
+              // "x-cg-demo-api-key": "YOUR_API_KEY"
+            },
+          },
         );
+
+        // Check karein ki response successful hai ya nahi (jaise 429 rate limit toh nahi hai)
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        // Check karein ki response JSON hai ya HTML
+        const contentType = response.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+          const textResponse = await response.text();
+          throw new Error(
+            `Received HTML instead of JSON. Rate limit exceeded? Response: ${textResponse.slice(0, 100)}`,
+          );
+        }
 
         const data = await response.json();
 
@@ -234,7 +263,8 @@ export default function BrowserScreen() {
                 return {
                   ...coin,
                   current_price: matched.current_price || 0,
-                  price_change_percentage_24h: matched.price_change_percentage_24h || 0,
+                  price_change_percentage_24h:
+                    matched.price_change_percentage_24h || 0,
                   image: matched.image || coin.image,
                 };
               }
@@ -250,9 +280,9 @@ export default function BrowserScreen() {
 
     fetchCryptoData();
 
-    const interval = setInterval(fetchCryptoData, 30000);
-
-    return () => clearInterval(interval);
+    // Optional: Agar aap bar-bar fetch kar rahe hain toh interval laga sakte hain (e.g., 30 seconds)
+    // const interval = setInterval(fetchCryptoData, 30000);
+    // return () => clearInterval(interval);
   }, [currency]);
 
   // Filtering
@@ -293,26 +323,43 @@ export default function BrowserScreen() {
       <View style={styles.segmentWrapper}>
         <TouchableOpacity
           onPress={() => setActiveSegment("Home")}
-          style={[styles.segmentBtn, activeSegment === "Home" && styles.segmentBtnActive]}
+          style={[
+            styles.segmentBtn,
+            activeSegment === "Home" && styles.segmentBtnActive,
+          ]}
         >
-          <Text style={[styles.segmentText, activeSegment === "Home" && styles.segmentTextActive]}>
+          <Text
+            style={[
+              styles.segmentText,
+              activeSegment === "Home" && styles.segmentTextActive,
+            ]}
+          >
             Market
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           onPress={() => setActiveSegment("Discover")}
-          style={[styles.segmentBtn, activeSegment === "Discover" && styles.segmentBtnActive]}
+          style={[
+            styles.segmentBtn,
+            activeSegment === "Discover" && styles.segmentBtnActive,
+          ]}
         >
           <Text
-            style={[styles.segmentText, activeSegment === "Discover" && styles.segmentTextActive]}
+            style={[
+              styles.segmentText,
+              activeSegment === "Discover" && styles.segmentTextActive,
+            ]}
           >
             Watchlist ({watchlist.length})
           </Text>
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
         {/* Search */}
         <View style={styles.searchBar}>
           <Ionicons name="search-outline" size={18} color="#94A3B8" />
@@ -335,19 +382,35 @@ export default function BrowserScreen() {
 
           <View style={styles.currencyToggleContainer}>
             <TouchableOpacity
-              style={[styles.currencyBtn, currency === "inr" && styles.currencyBtnActive]}
+              style={[
+                styles.currencyBtn,
+                currency === "inr" && styles.currencyBtnActive,
+              ]}
               onPress={() => setCurrency("inr")}
             >
-              <Text style={[styles.currencyText, currency === "inr" && styles.currencyTextActive]}>
+              <Text
+                style={[
+                  styles.currencyText,
+                  currency === "inr" && styles.currencyTextActive,
+                ]}
+              >
                 ₹ INR
               </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.currencyBtn, currency === "usd" && styles.currencyBtnActive]}
+              style={[
+                styles.currencyBtn,
+                currency === "usd" && styles.currencyBtnActive,
+              ]}
               onPress={() => setCurrency("usd")}
             >
-              <Text style={[styles.currencyText, currency === "usd" && styles.currencyTextActive]}>
+              <Text
+                style={[
+                  styles.currencyText,
+                  currency === "usd" && styles.currencyTextActive,
+                ]}
+              >
                 $ USD
               </Text>
             </TouchableOpacity>
@@ -365,29 +428,57 @@ export default function BrowserScreen() {
               return (
                 <View
                   key={coin.id}
-                  style={[styles.cryptoRow, compactMode && styles.compactCryptoRow]}
+                  style={[
+                    styles.cryptoRow,
+                    compactMode && styles.compactCryptoRow,
+                  ]}
                 >
                   {/* Left Side */}
-                  <View style={[styles.coinLeft, compactMode && styles.compactCoinLeft]}>
+                  <View
+                    style={[
+                      styles.coinLeft,
+                      compactMode && styles.compactCoinLeft,
+                    ]}
+                  >
                     <View
-                      style={[styles.iconPlaceholder, compactMode && styles.compactIconPlaceholder]}
+                      style={[
+                        styles.iconPlaceholder,
+                        compactMode && styles.compactIconPlaceholder,
+                      ]}
                     >
                       {coin.image ? (
                         <Image
                           source={{ uri: coin.image }}
-                          style={[styles.coinImage, compactMode && styles.compactCoinImage]}
+                          style={[
+                            styles.coinImage,
+                            compactMode && styles.compactCoinImage,
+                          ]}
                         />
                       ) : (
-                        <MaterialCommunityIcons name="currency-usd" size={20} color="#0284C7" />
+                        <MaterialCommunityIcons
+                          name="currency-usd"
+                          size={20}
+                          color="#0284C7"
+                        />
                       )}
                     </View>
 
                     <View>
-                      <Text style={[styles.coinName, compactMode && styles.compactCoinName]}>
+                      <Text
+                        style={[
+                          styles.coinName,
+                          compactMode && styles.compactCoinName,
+                        ]}
+                      >
                         {coin.name}
                       </Text>
 
-                      <Text style={[styles.coinSymbol, compactMode && styles.compactCoinSymbol]}>
+                      <Text
+                        style={[
+                          styles.coinSymbol,
+                          compactMode && styles.compactCoinSymbol,
+                        ]}
+                      >
                         {coin.symbol.toUpperCase()}
                       </Text>
                     </View>
@@ -401,7 +492,12 @@ export default function BrowserScreen() {
                     ]}
                   >
                     <View style={styles.coinRight}>
-                      <Text style={[styles.coinPrice, compactMode && styles.compactCoinPrice]}>
+                      <Text
+                        style={[
+                          styles.coinPrice,
+                          compactMode && styles.compactCoinPrice,
+                        ]}
+                      >
                         {coin.current_price > 0
                           ? `${currency === "inr" ? "₹" : "$"}${coin.current_price.toLocaleString(
                               currency === "inr" ? "en-IN" : "en-US",
@@ -463,7 +559,10 @@ export default function BrowserScreen() {
         onRequestClose={() => setMenuVisible(false)}
       >
         <View style={styles.drawerOverlay}>
-          <TouchableOpacity activeOpacity={1} onPress={() => setMenuVisible(false)} />
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={() => setMenuVisible(false)}
+          />
 
           <View style={styles.drawer}>
             <View style={styles.drawerHeader}>
@@ -557,9 +656,15 @@ export default function BrowserScreen() {
             />
 
             <View style={styles.drawerBottom}>
-              <Ionicons name="shield-checkmark-outline" size={17} color="#00A878" />
+              <Ionicons
+                name="shield-checkmark-outline"
+                size={17}
+                color="#00A878"
+              />
 
-              <Text style={styles.drawerSafeText}>Your wallet stays on your device</Text>
+              <Text style={styles.drawerSafeText}>
+                Your wallet stays on your device
+              </Text>
             </View>
           </View>
         </View>

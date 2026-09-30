@@ -1,5 +1,5 @@
 import { useAuth } from "@/context/AuthContext";
-import { useWallet } from "@/context/WalletContext"; // WalletContext import kiya
+import { useWallet } from "@/context/WalletContext";
 import {
   fetchCryptoPrices,
   fetchUsdtInrRate,
@@ -8,6 +8,7 @@ import {
   TOKENS_CONFIG,
 } from "@/services/cryptoService";
 import { executeBlockchainTransaction } from "@/services/transactionService";
+import { Colors } from "@/constants/Colors";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import {
@@ -21,17 +22,19 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 
 export default function SwapScreen() {
   const { address } = useAuth();
-  const { updateTokenBalanceLocally } = useWallet(); // Wallet context se sync function liya
+  const router = useRouter();
+  const { updateTokenBalanceLocally } = useWallet();
 
   const [fromToken, setFromToken] = useState({
     symbol: "ETH",
     name: "Ethereum",
     balance: "1.5000",
     icon: "ethereum",
-    color: "#627EEA",
+    color: "#000000",
     network: "ethereum",
   });
   const [toToken, setToToken] = useState({
@@ -39,7 +42,7 @@ export default function SwapScreen() {
     name: "USDC",
     balance: "0.31",
     icon: "currency-usd",
-    color: "#26A17B",
+    color: "#000000",
     network: "ethereum",
   });
 
@@ -48,6 +51,24 @@ export default function SwapScreen() {
   const [usdtInrRate, setUsdtInrRate] = useState(88);
   const [loading, setLoading] = useState(false);
   const [swapping, setSwapping] = useState(false);
+
+  const receiveAmount = (() => {
+    const amount = parseFloat(payAmount || "0");
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return "0.00";
+    }
+
+    if (fromToken.symbol.toUpperCase() === "ETH" && toToken.symbol.toUpperCase() === "USDC") {
+      return (amount * ethRate).toFixed(6);
+    }
+
+    if (fromToken.symbol.toUpperCase() === "USDC" && toToken.symbol.toUpperCase() === "ETH") {
+      return (amount / ethRate).toFixed(6);
+    }
+
+    return "0.00";
+  })();
 
   const handleConfirmSwap = async () => {
     if (!address) {
@@ -81,7 +102,6 @@ export default function SwapScreen() {
       const addedReceiveAmount = parseFloat(receiveAmount || "0");
       const updatedToBalance = (currentToBalance + addedReceiveAmount).toFixed(2);
 
-      // Yahan global wallet state ko instantly update kar rahe hain taaki Wallet screen match ho jaye
       updateTokenBalanceLocally(
         fromToken.symbol,
         toToken.symbol,
@@ -120,26 +140,16 @@ export default function SwapScreen() {
 
     try {
       setLoading(true);
-
       const [prices, inrRate] = await Promise.all([fetchCryptoPrices(), fetchUsdtInrRate()]);
 
-      // -----------------------------
-      // Live ETH/USD price
-      // -----------------------------
       if (prices?.ethereum?.usd) {
         setEthRate(Number(prices.ethereum.usd));
       }
 
-      // -----------------------------
-      // Live USD -> INR rate
-      // -----------------------------
       if (Number.isFinite(inrRate) && inrRate > 0) {
         setUsdtInrRate(Number(inrRate));
       }
 
-      // -----------------------------
-      // ETH balance
-      // -----------------------------
       const ethBalance = await getNativeBalance(address, "localhost");
 
       if (ethBalance && !isNaN(Number(ethBalance))) {
@@ -149,9 +159,6 @@ export default function SwapScreen() {
         }));
       }
 
-      // -----------------------------
-      // USDC balance
-      // -----------------------------
       const tokenConfig = TOKENS_CONFIG.find(
         (token) => token.symbol.toUpperCase() === toToken.symbol.toUpperCase(),
       );
@@ -162,8 +169,6 @@ export default function SwapScreen() {
         if (tokenConfig.type === "native") {
           tokenBalance = await getNativeBalance(address, tokenConfig.network);
         } else if (tokenConfig.contractAddress) {
-          // IMPORTANT:
-          // New getTokenBalance signature
           tokenBalance = await getTokenBalance(address, tokenConfig);
         }
 
@@ -187,26 +192,6 @@ export default function SwapScreen() {
     loadSwapData();
   }, [address]);
 
-  const receiveAmount = (() => {
-    const amount = parseFloat(payAmount || "0");
-
-    if (!Number.isFinite(amount) || amount <= 0) {
-      return "0.00";
-    }
-
-    // ETH -> USDC
-    if (fromToken.symbol.toUpperCase() === "ETH" && toToken.symbol.toUpperCase() === "USDC") {
-      return (amount * ethRate).toFixed(6);
-    }
-
-    // USDC -> ETH
-    if (fromToken.symbol.toUpperCase() === "USDC" && toToken.symbol.toUpperCase() === "ETH") {
-      return (amount / ethRate).toFixed(6);
-    }
-
-    return "0.00";
-  })();
-
   const handleSwitchTokens = () => {
     const temp = fromToken;
     setFromToken(toToken);
@@ -215,20 +200,19 @@ export default function SwapScreen() {
   };
 
   const usdValue = parseFloat(payAmount || "0") * (fromToken.symbol === "ETH" ? ethRate : 1);
-
   const inrValue = usdValue * usdtInrRate;
 
   return (
-    <SafeAreaView style={styles.safeContainer}>
-      <StatusBar barStyle="dark-content" />
+    <SafeAreaView style={styles.safeContainer} edges={["top"]}>
+      <StatusBar barStyle="dark-content" backgroundColor={Colors.backgroundLight} />
 
       <View style={styles.topHeader}>
-        <TouchableOpacity>
-          <Ionicons name="chevron-back" size={24} color="#0F172A" />
+        <TouchableOpacity onPress={() => router.back()}>
+          <Ionicons name="chevron-back" size={24} color={Colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.title}>Swap/Exchange</Text>
         <TouchableOpacity>
-          <Ionicons name="options-outline" size={22} color="#0F172A" />
+          <Ionicons name="options-outline" size={22} color={Colors.textPrimary} />
         </TouchableOpacity>
       </View>
 
@@ -240,7 +224,7 @@ export default function SwapScreen() {
             <TouchableOpacity onPress={() => setPayAmount(fromToken.balance)}>
               <Text style={styles.balanceHint}>
                 Balance: {fromToken.balance} {fromToken.symbol}{" "}
-                <Text style={{ color: "#0090FF", fontWeight: "700" }}>(MAX)</Text>
+                <Text style={{ color: Colors.textPrimary, fontWeight: "700" }}>(MAX)</Text>
               </Text>
             </TouchableOpacity>
           </View>
@@ -249,47 +233,36 @@ export default function SwapScreen() {
               <MaterialCommunityIcons
                 name={fromToken.icon as any}
                 size={22}
-                color={fromToken.color}
+                color={Colors.textPrimary}
               />
               <Text style={styles.tokenPickerText}>{fromToken.symbol}</Text>
-              <Ionicons name="chevron-down" size={16} color="#64748B" />
+              <Ionicons name="chevron-down" size={16} color={Colors.textSecondary} />
             </TouchableOpacity>
             <TextInput
               style={styles.amountInput}
               keyboardType="decimal-pad"
               value={payAmount}
-              onChangeText={(val) => {
-                setPayAmount(val);
-              }}
+              onChangeText={(val) => setPayAmount(val)}
               placeholder="0.0"
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor={Colors.disabled}
               numberOfLines={1}
             />
           </View>
           <Text style={styles.usdEquivalent} numberOfLines={1} ellipsizeMode="tail">
-            ≈ $
-            {usdValue.toLocaleString("en-US", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}{" "}
-            (₹
-            {inrValue.toLocaleString("en-IN", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}
-            )
+            ≈ ${usdValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{" "}
+            (₹{inrValue.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
           </Text>
         </View>
 
         {/* Swap Switcher Button */}
         <View style={styles.switchButtonWrapper}>
           <TouchableOpacity style={styles.switchButton} onPress={handleSwitchTokens}>
-            <Ionicons name="swap-vertical" size={20} color="#0090FF" />
+            <Ionicons name="swap-vertical" size={20} color={Colors.textPrimary} />
           </TouchableOpacity>
         </View>
 
         {/* "To" Card */}
-        <View style={[styles.swapCard]}>
+        <View style={styles.swapCard}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardLabel}>To</Text>
             <Text style={styles.balanceHint}>
@@ -298,26 +271,21 @@ export default function SwapScreen() {
           </View>
           <View style={styles.inputRow}>
             <TouchableOpacity style={styles.tokenPickerBtn}>
-              <MaterialCommunityIcons name={toToken.icon as any} size={22} color={toToken.color} />
+              <MaterialCommunityIcons
+                name={toToken.icon as any}
+                size={22}
+                color={Colors.textPrimary}
+              />
               <Text style={styles.tokenPickerText}>{toToken.symbol}</Text>
-              <Ionicons name="chevron-down" size={16} color="#64748B" />
+              <Ionicons name="chevron-down" size={16} color={Colors.textSecondary} />
             </TouchableOpacity>
             <Text style={styles.amountResult} numberOfLines={1}>
               {receiveAmount}
             </Text>
           </View>
           <Text style={styles.usdEquivalent} numberOfLines={1} ellipsizeMode="tail">
-            ≈ $
-            {parseFloat(receiveAmount).toLocaleString("en-US", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}{" "}
-            (₹
-            {(parseFloat(receiveAmount) * usdtInrRate).toLocaleString("en-IN", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}
-            )
+            ≈ ${parseFloat(receiveAmount).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{" "}
+            (₹{(parseFloat(receiveAmount) * usdtInrRate).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
           </Text>
         </View>
 
@@ -349,7 +317,7 @@ export default function SwapScreen() {
           disabled={swapping}
         >
           {swapping ? (
-            <ActivityIndicator color="#FFFFFF" />
+            <ActivityIndicator color={Colors.onPrimary} />
           ) : (
             <Text style={styles.confirmBtnText}>Confirm Swap</Text>
           )}
@@ -360,7 +328,7 @@ export default function SwapScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeContainer: { flex: 1, backgroundColor: "#F8FAFC" },
+  safeContainer: { flex: 1, backgroundColor: Colors.backgroundLight },
   topHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -368,12 +336,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 14,
   },
-  title: { fontSize: 18, fontWeight: "700", color: "#0F172A" },
+  title: { fontSize: 18, fontWeight: "700", color: Colors.textPrimary },
   content: { paddingHorizontal: 20, paddingTop: 10 },
   swapCard: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: Colors.surfaceCard,
     borderWidth: 1,
-    borderColor: "#EEF2F6",
+    borderColor: Colors.border,
     borderRadius: 20,
     padding: 16,
     shadowColor: "#000",
@@ -386,8 +354,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 10,
   },
-  cardLabel: { fontSize: 13, color: "#64748B", fontWeight: "500" },
-  balanceHint: { fontSize: 12, color: "#94A3B8" },
+  cardLabel: { fontSize: 13, color: Colors.textSecondary, fontWeight: "500" },
+  balanceHint: { fontSize: 12, color: Colors.textSecondary },
   inputRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -396,18 +364,20 @@ const styles = StyleSheet.create({
   tokenPickerBtn: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F1F5F9",
+    backgroundColor: Colors.accentCyan,
     paddingVertical: 6,
     paddingHorizontal: 10,
     borderRadius: 14,
     gap: 6,
     flexShrink: 0,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
-  tokenPickerText: { fontSize: 15, fontWeight: "600", color: "#0F172A" },
+  tokenPickerText: { fontSize: 15, fontWeight: "600", color: Colors.textPrimary },
   amountInput: {
     fontSize: 20,
     fontWeight: "700",
-    color: "#0F172A",
+    color: Colors.textPrimary,
     textAlign: "right",
     flex: 1,
     marginLeft: 12,
@@ -416,14 +386,14 @@ const styles = StyleSheet.create({
   amountResult: {
     fontSize: 20,
     fontWeight: "700",
-    color: "#0F172A",
+    color: Colors.textPrimary,
     textAlign: "right",
     flex: 1,
     marginLeft: 12,
   },
   usdEquivalent: {
     fontSize: 12,
-    color: "#94A3B8",
+    color: Colors.textSecondary,
     textAlign: "right",
     marginTop: 4,
   },
@@ -436,9 +406,9 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: Colors.surfaceCard,
     borderWidth: 1,
-    borderColor: "#EEF2F6",
+    borderColor: Colors.border,
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#000",
@@ -448,25 +418,27 @@ const styles = StyleSheet.create({
   },
   summaryContainer: {
     marginTop: 20,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: Colors.surfaceCard,
     borderRadius: 14,
     padding: 14,
     gap: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   summaryRow: { flexDirection: "row", justifyContent: "space-between" },
-  summaryLabel: { fontSize: 13, color: "#64748B" },
-  summaryValue: { fontSize: 13, fontWeight: "500", color: "#0F172A" },
+  summaryLabel: { fontSize: 13, color: Colors.textSecondary },
+  summaryValue: { fontSize: 13, fontWeight: "500", color: Colors.textPrimary },
   confirmBtn: {
-    backgroundColor: "#0090FF",
+    backgroundColor: Colors.primary,
     height: 52,
     borderRadius: 26,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 24,
-    shadowColor: "#0090FF",
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    elevation: 4,
+    shadowColor: Colors.primary,
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  confirmBtnText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
+  confirmBtnText: { color: Colors.onPrimary, fontSize: 16, fontWeight: "700" },
 });

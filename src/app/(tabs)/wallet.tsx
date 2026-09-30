@@ -1,12 +1,8 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import QRCode from "react-native-qrcode-svg";
-// import * as Sharing from "expo-sharing";
-import { Color } from "expo-router";
 import {
-  Alert,
   Modal,
   ScrollView,
   StatusBar,
@@ -40,25 +36,27 @@ export default function WalletScreen() {
 
   return (
     <SafeAreaView style={styles.safeContainer} edges={["top"]}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle="dark-content" backgroundColor={Colors.backgroundLight} />
 
-      <LinearGradient
-        colors={["#333334", "#0e1114", "#000000"]}
-        style={styles.headerGradient}
-      >
+      {/* Modern High-Contrast Top Header Section */}
+      <View style={styles.headerContainer}>
         <View style={styles.topNav}>
           <TouchableOpacity
+            style={styles.navIconButton}
             onPress={() => loadWalletData(false)}
             disabled={loading}
           >
-            <Ionicons name="reload-outline" size={22} color="#FFF" />
+            <Ionicons name="reload-outline" size={20} color={Colors.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.navTitle}>Wallet</Text>
-          <TouchableOpacity onPress={() => setDetailsModalVisible(true)}>
+          <TouchableOpacity 
+            style={styles.navIconButton}
+            onPress={() => setDetailsModalVisible(true)}
+          >
             <Ionicons
               name="shield-checkmark-outline"
-              size={22}
-              color="#00D18F"
+              size={20}
+              color={Colors.positiveGreen}
             />
           </TouchableOpacity>
         </View>
@@ -80,25 +78,24 @@ export default function WalletScreen() {
         </View>
 
         <View style={styles.actionsRow}>
-          <ActionButton name="arrow-up" label="Send" onPress={()=> router.push("/send")}  />
-          <ActionButton
-            name="arrow-down"
-            label="Receive"
-            onPress={() => setReceiveModalVisible(true)}
-          />
-          <ActionButton name="card-outline" label="Buy" />
+          <ActionButton name="arrow-up" label="Send" onPress={() => router.push("/send")} />
           <ActionButton
             name="swap-horizontal"
             label="Swap"
             onPress={() => router.push("/swap")}
           />
+          <ActionButton
+            name="arrow-down"
+            label="Receive"
+            onPress={() => setReceiveModalVisible(true)}
+          />
         </View>
-      </LinearGradient>
+      </View>
 
       {/* Receive Modal (QR Code & Address) */}
       <Modal
         animationType="slide"
-        transparent
+        transparent={true}
         visible={receiveModalVisible}
         onRequestClose={() => setReceiveModalVisible(false)}
       >
@@ -107,7 +104,7 @@ export default function WalletScreen() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Receive Crypto</Text>
               <TouchableOpacity onPress={() => setReceiveModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#0F172A" />
+                <Ionicons name="close" size={24} color={Colors.textPrimary} />
               </TouchableOpacity>
             </View>
 
@@ -122,17 +119,17 @@ export default function WalletScreen() {
                 <QRCode
                   value={address}
                   size={180}
-                  color="#0F172A"
-                  backgroundColor="#FFFFFF"
+                  color={Colors.textPrimary}
+                  backgroundColor={Colors.backgroundLight}
                 />
               ) : (
-                <Text style={{ color: "#64748B" }}>Loading Address...</Text>
+                <Text style={{ color: Colors.textSecondary }}>Loading Address...</Text>
               )}
             </View>
 
             <View style={styles.walletDetailsBox}>
               <Text style={styles.detailLabel}>Your Public Address</Text>
-              <Text style={styles.detailValue} selectable>
+              <Text style={styles.detailValue} selectable={true}>
                 {address}
               </Text>
 
@@ -144,7 +141,7 @@ export default function WalletScreen() {
                   <Ionicons
                     name={copied ? "checkmark" : "copy-outline"}
                     size={16}
-                    color="#0284C7"
+                    color={Colors.textPrimary}
                   />
                   <Text style={styles.copyBtnText}>
                     {copied ? "Copied!" : "Copy"}
@@ -160,6 +157,7 @@ export default function WalletScreen() {
         </View>
       </Modal>
 
+      {/* Assets Section */}
       <View style={styles.assetsContainer}>
         <View style={styles.assetsHeader}>
           <Text style={styles.assetsTitle}>Assets</Text>
@@ -182,13 +180,13 @@ export default function WalletScreen() {
                 <View
                   style={[
                     styles.tokenIconWrapper,
-                    { backgroundColor: `${token.color}20` },
+                    { backgroundColor: Colors.accentCyan },
                   ]}
                 >
                   <MaterialCommunityIcons
                     name={token.icon as any}
-                    size={24}
-                    color={token.color}
+                    size={22}
+                    color={Colors.textPrimary}
                   />
                 </View>
 
@@ -201,7 +199,7 @@ export default function WalletScreen() {
                   <Text
                     style={[
                       styles.tokenChange,
-                      { color: token.isUp ? "#00C087" : "#FF4D4F" },
+                      { color: token.isUp ? Colors.positiveGreen : Colors.negativeRed },
                     ]}
                   >
                     {token.change}
@@ -222,10 +220,10 @@ export default function WalletScreen() {
         </ScrollView>
       </View>
 
-      {/* Wallet Details Modal (Only Details) */}
+      {/* Wallet Details Modal */}
       <Modal
         animationType="slide"
-        transparent
+        transparent={true}
         visible={detailsModalVisible}
         onRequestClose={() => setDetailsModalVisible(false)}
       >
@@ -234,7 +232,7 @@ export default function WalletScreen() {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Wallet Details</Text>
               <TouchableOpacity onPress={() => setDetailsModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#0F172A" />
+                <Ionicons name="close" size={24} color={Colors.textPrimary} />
               </TouchableOpacity>
             </View>
 
@@ -245,7 +243,7 @@ export default function WalletScreen() {
 
             <View style={styles.walletDetailsBox}>
               <Text style={styles.detailLabel}>Public Address</Text>
-              <Text style={styles.detailValue} selectable>
+              <Text style={styles.detailValue} selectable={true}>
                 {address}
               </Text>
 
@@ -256,7 +254,7 @@ export default function WalletScreen() {
                 <Ionicons
                   name={copied ? "checkmark" : "copy-outline"}
                   size={16}
-                  color="#0284C7"
+                  color={Colors.textPrimary}
                 />
                 <Text style={styles.copyBtnText}>
                   {copied ? "Copied!" : "Copy Address"}
@@ -284,7 +282,7 @@ function ActionButton({ name, label, onPress }: ActionButtonProps) {
   return (
     <TouchableOpacity style={styles.actionItem} onPress={onPress}>
       <View style={styles.actionCircle}>
-        <Ionicons name={name} size={22} color="#FFF" />
+        <Ionicons name={name} size={20} color={Colors.onPrimary} />
       </View>
       <Text style={styles.actionLabel}>{label}</Text>
     </TouchableOpacity>
@@ -292,65 +290,107 @@ function ActionButton({ name, label, onPress }: ActionButtonProps) {
 }
 
 const styles = StyleSheet.create({
-  safeContainer: { flex: 1, backgroundColor: "#fafafa" },
-  headerGradient: {
+  safeContainer: { 
+    flex: 1, 
+    backgroundColor: Colors.backgroundLight 
+  },
+  headerContainer: {
+    backgroundColor: Colors.backgroundLight,
     paddingHorizontal: 20,
     paddingTop: 12,
-    paddingBottom: 28,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
+    paddingBottom: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
   },
   topNav: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: 16,
   },
-  navTitle: { color: "#FFF", fontSize: 18, fontWeight: "600" },
-  balanceSection: { alignItems: "center", marginVertical: 10 },
-  walletLabel: { color: "#fcfdff", fontSize: 14, marginBottom: 6 },
-  totalBalance: {
-    color: "#FFF",
-    fontSize: 34,
+  navIconButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: Colors.accentCyan,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  navTitle: { 
+    color: Colors.textPrimary, 
+    fontSize: 17, 
     fontWeight: "700",
-    letterSpacing: -0.5,
+    letterSpacing: -0.3 
+  },
+  balanceSection: { 
+    alignItems: "center", 
+    marginVertical: 12 
+  },
+  walletLabel: { 
+    color: Colors.textSecondary, 
+    fontSize: 13, 
+    marginBottom: 4,
+    fontWeight: "500" 
+  },
+  totalBalance: {
+    color: Colors.textPrimary,
+    fontSize: 34,
+    fontWeight: "800",
+    letterSpacing: -0.8,
   },
   growthBadge: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(6, 23, 18, 0.15)",
+    backgroundColor: Colors.accentCyan,
     paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginTop: 8,
-    gap: 6,
+    paddingVertical: 5,
+    borderRadius: 20,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
-  liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#00D18F" },
-  growthText: { color: "#00D18F", fontWeight: "600", fontSize: 11 },
+  liveDot: { 
+    width: 6, 
+    height: 6, 
+    borderRadius: 3, 
+    backgroundColor: Colors.positiveGreen,
+    marginRight: 6,
+  },
+  growthText: { 
+    color: Colors.textPrimary, 
+    fontWeight: "600", 
+    fontSize: 11 
+  },
   actionsRow: {
     flexDirection: "row",
     justifyContent: "space-around",
-    marginTop: 26,
+    marginTop: 20,
+    paddingHorizontal: 10,
   },
-  actionItem: { alignItems: "center", gap: 6 },
+  actionItem: { 
+    alignItems: "center", 
+  },
   actionCircle: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: "#0090FF",
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: Colors.primary,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#0090FF",
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 4,
+    borderWidth: 1,
+    borderColor: Colors.borderStrong,
+    marginBottom: 6,
   },
-  actionLabel: { color: "#E2E8F0", fontSize: 12, fontWeight: "500" },
+  actionLabel: { 
+    color: Colors.textPrimary, 
+    fontSize: 12, 
+    fontWeight: "600" 
+  },
   assetsContainer: {
     flex: 1,
-    backgroundColor: "#F8FAFC",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    backgroundColor: Colors.backgroundLight,
     paddingHorizontal: 20,
     paddingTop: 20,
   },
@@ -358,17 +398,29 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: 12,
+  },
+  assetsTitle: { 
+    fontSize: 18, 
+    fontWeight: "700", 
+    color: Colors.textPrimary,
+    letterSpacing: -0.3,
+  },
+  createWalletLink: { 
+    fontSize: 13, 
+    color: Colors.textPrimary, 
+    fontWeight: "600",
+    textDecorationLine: "underline" 
   },
   qrContainer: {
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#F8FAFC",
-    padding: 16,
+    backgroundColor: Colors.backgroundLight,
+    padding: 20,
     borderRadius: 16,
     marginVertical: 12,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: Colors.border,
   },
   modalActionRow: {
     flexDirection: "row",
@@ -378,20 +430,20 @@ const styles = StyleSheet.create({
   actionBtnStyle: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#E0F2FE",
+    backgroundColor: Colors.accentCyan,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
     gap: 6,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
-  assetsTitle: { fontSize: 18, fontWeight: "700", color: "#0F172A" },
-  createWalletLink: { fontSize: 13, color: "#0284C7", fontWeight: "600" },
   tokenRow: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: "#F1F5F9",
+    borderBottomColor: Colors.border,
   },
   tokenIconWrapper: {
     width: 44,
@@ -400,30 +452,51 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginRight: 14,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   tokenInfo: { flex: 1 },
-  tokenName: { fontSize: 16, fontWeight: "600", color: "#0F172A" },
-  tokenBalanceText: { fontSize: 13, color: "#64748B", marginTop: 2 },
-  tokenChange: { fontSize: 12, marginTop: 1, fontWeight: "500" },
+  tokenName: { 
+    fontSize: 15, 
+    fontWeight: "600", 
+    color: Colors.textPrimary 
+  },
+  tokenBalanceText: { 
+    fontSize: 13, 
+    color: Colors.textSecondary, 
+    marginTop: 2,
+    fontWeight: "500" 
+  },
+  tokenChange: { 
+    fontSize: 12, 
+    marginTop: 1, 
+    fontWeight: "600" 
+  },
   tokenPriceCol: { alignItems: "flex-end" },
-  tokenAmount: { fontSize: 16, fontWeight: "600", color: "#0F172A" },
+  tokenAmount: { 
+    fontSize: 15, 
+    fontWeight: "700", 
+    color: Colors.textPrimary 
+  },
   emptyText: {
     textAlign: "center",
-    color: "#94A3B8",
+    color: Colors.textSecondary,
     marginTop: 40,
     fontSize: 13,
   },
   modalOverlay: {
     flex: 1,
     justifyContent: "flex-end",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
   },
   modalContent: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: Colors.surfaceCard,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
     maxHeight: "80%",
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   modalHeader: {
     flexDirection: "row",
@@ -431,37 +504,56 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 10,
   },
-  modalTitle: { fontSize: 18, fontWeight: "700", color: "#0F172A" },
+  modalTitle: { 
+    fontSize: 18, 
+    fontWeight: "700", 
+    color: Colors.textPrimary 
+  },
   modalSubtitle: {
     fontSize: 13,
-    color: "#64748B",
+    color: Colors.textSecondary,
     marginBottom: 20,
     lineHeight: 18,
   },
   walletDetailsBox: {
-    backgroundColor: "#F1F5F9",
+    backgroundColor: Colors.accentCyan,
     padding: 14,
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
-  detailLabel: { fontSize: 12, fontWeight: "700", color: "#0F172A" },
+  detailLabel: { 
+    fontSize: 12, 
+    fontWeight: "700", 
+    color: Colors.textPrimary 
+  },
   detailValue: {
     fontSize: 13,
-    color: "#0284C7",
+    color: Colors.textPrimary,
     marginTop: 6,
-    fontFamily: "monospace",
     lineHeight: 18,
   },
   copyBtn: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
     marginTop: 14,
     alignSelf: "flex-start",
+    backgroundColor: Colors.backgroundLight,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
-  copyBtnText: { fontSize: 13, color: "#0284C7", fontWeight: "600" },
+  copyBtnText: { 
+    fontSize: 13, 
+    color: Colors.textPrimary, 
+    fontWeight: "600",
+    marginLeft: 6,
+  },
   seedHint: {
     fontSize: 12,
-    color: "#94A3B8",
+    color: Colors.textSecondary,
     textAlign: "center",
     marginTop: 20,
   },

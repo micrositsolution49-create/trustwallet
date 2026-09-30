@@ -13,6 +13,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Colors } from "@/constants/Colors";
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -94,15 +95,15 @@ export default function ConfirmPhraseScreen() {
 
   return (
     <LinearGradient
-      colors={["#07162C", "#0E335E", "#0B5997"]}
+      colors={[Colors.cardGradientStart, Colors.cardGradientEnd]}
       style={styles.container}
     >
       <SafeAreaView style={styles.safe}>
-        <StatusBar barStyle="light-content" />
+        <StatusBar barStyle="dark-content" />
 
         <View style={styles.header}>
           <TouchableOpacity onPress={handleAbandon}>
-            <Ionicons name="arrow-back" size={22} color="#FFF" />
+            <Ionicons name="arrow-back" size={22} color={Colors.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Verify Phrase</Text>
           <View style={{ width: 22 }} />
@@ -193,11 +194,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 14,
   },
-  headerTitle: { color: "#FFF", fontSize: 16, fontWeight: "600" },
+  headerTitle: { color: Colors.textPrimary, fontSize: 16, fontWeight: "600" },
   scrollContent: { paddingBottom: 30 },
   instruction: {
     fontSize: 14,
-    color: "#A0B3D6",
+    color: Colors.textSecondary,
     lineHeight: 20,
     marginTop: 6,
     marginBottom: 20,
@@ -206,7 +207,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
-    backgroundColor: "rgba(255,255,255,0.05)",
+    backgroundColor: Colors.surfaceCard,
+    borderWidth: 1,
+    borderColor: Colors.border,
     borderRadius: 14,
     padding: 12,
     marginBottom: 10,
@@ -214,7 +217,8 @@ const styles = StyleSheet.create({
   },
   selectedSlot: {
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.2)",
+    borderColor: Colors.border,
+    backgroundColor: Colors.accentCyan,
     borderRadius: 8,
     paddingVertical: 8,
     paddingHorizontal: 10,
@@ -222,11 +226,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   selectedSlotError: {
-    borderColor: "#DC2626",
+    borderColor: Colors.negativeRed,
+    backgroundColor: "rgba(255, 59, 48, 0.1)",
   },
-  selectedSlotText: { color: "#FFF", fontSize: 13, fontWeight: "600" },
+  selectedSlotText: { color: Colors.textPrimary, fontSize: 13, fontWeight: "600" },
   errorText: {
-    color: "#FCA5A5",
+    color: Colors.negativeRed,
     fontSize: 13,
     marginBottom: 12,
     textAlign: "center",
@@ -238,18 +243,19 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   wordChip: {
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: Colors.surfaceCard,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
+    borderColor: Colors.border,
     borderRadius: 10,
     paddingVertical: 10,
     paddingHorizontal: 14,
   },
   wordChipUsed: {
-    opacity: 0.25,
+    opacity: 0.3,
+    backgroundColor: Colors.accentCyan,
   },
-  wordChipText: { color: "#FFF", fontSize: 13, fontWeight: "600" },
-  wordChipTextUsed: { color: "#64748B" },
+  wordChipText: { color: Colors.textPrimary, fontSize: 13, fontWeight: "600" },
+  wordChipTextUsed: { color: Colors.textSecondary },
   actionsRow: {
     flexDirection: "row",
     gap: 12,
@@ -260,18 +266,18 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 14,
     alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: Colors.surfaceCard,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.15)",
+    borderColor: Colors.border,
   },
-  resetBtnText: { color: "#FFF", fontWeight: "600", fontSize: 15 },
+  resetBtnText: { color: Colors.textPrimary, fontWeight: "600", fontSize: 15 },
   continueBtn: {
     flex: 2,
     paddingVertical: 16,
     borderRadius: 14,
     alignItems: "center",
-    backgroundColor: "#0090FF",
+    backgroundColor: Colors.primary,
   },
-  continueBtnDisabled: { backgroundColor: "#33475F" },
-  continueBtnText: { color: "#FFF", fontWeight: "700", fontSize: 15 },
+  continueBtnDisabled: { backgroundColor: Colors.disabled },
+  continueBtnText: { color: Colors.onPrimary, fontWeight: "700", fontSize: 15 },
 });

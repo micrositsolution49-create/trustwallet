@@ -25,7 +25,7 @@ export const NETWORKS = {
 
   localhost: {
     name: "Local Hardhat",
-    rpcUrl: "http://192.168.1.34:8545",
+    rpcUrl: "http://192.168.1.5:8545",
     symbol: "ETH",
     chainId: 31337,
   },

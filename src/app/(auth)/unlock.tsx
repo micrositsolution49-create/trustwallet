@@ -13,6 +13,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Colors } from "@/constants/Colors";
 
 const PIN_LENGTH = 6;
 const KEYPAD = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "del"];
@@ -105,11 +106,11 @@ export default function UnlockScreen() {
   if (checkingBiometric) {
     return (
       <LinearGradient
-        colors={["#07162C", "#0E335E", "#0B5997"]}
+        colors={[Colors.cardGradientStart, Colors.cardGradientEnd]}
         style={styles.container}
       >
         <SafeAreaView style={styles.centeredSafe}>
-          <StatusBar barStyle="light-content" />
+          <StatusBar barStyle="dark-content" />
           <Text style={styles.checkingText}>Checking biometrics...</Text>
         </SafeAreaView>
       </LinearGradient>
@@ -128,14 +129,14 @@ export default function UnlockScreen() {
 
   return (
     <LinearGradient
-      colors={["#07162C", "#0E335E", "#0B5997"]}
+      colors={[Colors.cardGradientStart, Colors.cardGradientEnd]}
       style={styles.container}
     >
       <SafeAreaView style={styles.safe}>
-        <StatusBar barStyle="light-content" />
+        <StatusBar barStyle="dark-content" />
 
         <View style={styles.header}>
-          <Ionicons name="lock-closed" size={32} color="#00D18F" />
+          <Ionicons name="lock-closed" size={32} color={Colors.primary} />
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.subtitle}>{subtitle}</Text>
         </View>
@@ -159,12 +160,16 @@ export default function UnlockScreen() {
           {KEYPAD.map((key, i) => (
             <TouchableOpacity
               key={i}
-              style={[styles.key, key === "" && styles.keyHidden]}
+              style={[
+                styles.key, 
+                key === "" && styles.keyHidden,
+                key !== "" && styles.keyButton // styling keys as subtle touch targets if needed
+              ]}
               onPress={() => handleKeyPress(key)}
               disabled={key === ""}
             >
               {key === "del" ? (
-                <Ionicons name="backspace-outline" size={22} color="#FFF" />
+                <Ionicons name="backspace-outline" size={22} color={Colors.textPrimary} />
               ) : (
                 <Text style={styles.keyText}>{key}</Text>
               )}
@@ -177,7 +182,7 @@ export default function UnlockScreen() {
             style={styles.biometricLink}
             onPress={handleBiometricRetry}
           >
-            <Ionicons name="finger-print-outline" size={18} color="#A0B3D6" />
+            <Ionicons name="finger-print-outline" size={18} color={Colors.textSecondary} />
             <Text style={styles.biometricLinkText}>Use biometrics instead</Text>
           </TouchableOpacity>
         )}
@@ -190,11 +195,11 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   safe: { flex: 1, alignItems: "center", paddingTop: 60 },
   centeredSafe: { flex: 1, alignItems: "center", justifyContent: "center" },
-  checkingText: { color: "#A0B3D6", fontSize: 14 },
+  checkingText: { color: Colors.textSecondary, fontSize: 14 },
   header: { alignItems: "center", gap: 10, marginBottom: 40 },
-  title: { color: "#FFF", fontSize: 20, fontWeight: "700" },
+  title: { color: Colors.textPrimary, fontSize: 20, fontWeight: "700" },
   subtitle: {
-    color: "#A0B3D6",
+    color: Colors.textSecondary,
     fontSize: 13,
     textAlign: "center",
     paddingHorizontal: 40,
@@ -205,11 +210,11 @@ const styles = StyleSheet.create({
     height: 14,
     borderRadius: 7,
     borderWidth: 1.5,
-    borderColor: "rgba(255,255,255,0.3)",
+    borderColor: Colors.border,
   },
-  dotFilled: { backgroundColor: "#0090FF", borderColor: "#0090FF" },
-  dotError: { borderColor: "#DC2626" },
-  errorText: { color: "#FCA5A5", fontSize: 13, marginBottom: 10 },
+  dotFilled: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  dotError: { borderColor: Colors.negativeRed },
+  errorText: { color: Colors.negativeRed, fontSize: 13, marginBottom: 10 },
   keypad: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -222,14 +227,18 @@ const styles = StyleSheet.create({
     height: 64,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: Colors.accentCyan, // Light background for keypad buttons to fit light theme
+    borderRadius: 12,
+    margin: 6,
   },
-  keyHidden: { opacity: 0 },
-  keyText: { color: "#FFF", fontSize: 24, fontWeight: "500" },
+  keyButton: {},
+  keyHidden: { opacity: 0, backgroundColor: "transparent" },
+  keyText: { color: Colors.textPrimary, fontSize: 24, fontWeight: "500" },
   biometricLink: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
     marginTop: 30,
   },
-  biometricLinkText: { color: "#A0B3D6", fontSize: 13, fontWeight: "500" },
+  biometricLinkText: { color: Colors.textSecondary, fontSize: 13, fontWeight: "500" },
 });

@@ -1,16 +1,30 @@
 export const Colors = {
-  primary: "#111111",       // Sleek Rich Black (Primary brand/accent element)
-  brandBlue: "#222222",     // Replaced blue with deep charcoal/black variant
-  deepBlueDark: "#000000",  // Pure Black Deep Background
-  cardGradientStart: "#181818", // Dark metallic card gradient start
-  cardGradientEnd: "#0A0A0A",   // Dark metallic card gradient end
-  accentCyan: "#E2E8F0",    // Silver/Off-white for clean contrast highlights
-  positiveGreen: "#00C853", // Success / Profits
-  negativeRed: "#FF3B30",   // Losses / Warnings
-  backgroundLight: "#F8FAFC",
-  backgroundDark: "#000000", // App main background: Pure Black
-  surfaceCard: "#121212",   // Elevated card background for contrast over black
-  textPrimary: "#FFFFFF",   // Crisp white text for readability
-  textSecondary: "#8E8E93", // Muted gray for subtitles
-  border: "#262626",        // Subtle dark borders
+  // ---- Brand / accent (black only) ----
+  primary: "#000000",            // Black buttons, active icons
+  onPrimary: "#FFFFFF",          // NEW: text/icon on black buttons
+  brandBlue: "#111111",          // Was blue -> now near-black
+  deepBlueDark: "#000000",       // Pure black (text/borders)
+  accentCyan: "#F2F2F2",         // Light gray highlight (chips, subtle fills)
+
+  // ---- Cards (white, no gradient darkness) ----
+  cardGradientStart: "#FFFFFF",
+  cardGradientEnd: "#F5F5F5",
+
+  // ---- Status (kept, no blue/purple) ----
+  positiveGreen: "#00C853",
+  negativeRed: "#FF3B30",
+
+  // ---- Backgrounds: WHITE ----
+  backgroundLight: "#FFFFFF",
+  backgroundDark: "#FFFFFF",     // App main background is now white
+  surfaceCard: "#FFFFFF",        // Cards are white, separated by border
+
+  // ---- Text: BLACK ----
+  textPrimary: "#000000",
+  textSecondary: "#6B6B6B",
+
+  // ---- Borders ----
+  border: "#E0E0E0",             // Light gray border for cards/inputs
+  borderStrong: "#000000",       // NEW: black outline when you want emphasis
+  disabled: "#CCCCCC",           // NEW
 };

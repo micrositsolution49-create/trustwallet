@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Colors } from "@/constants/Colors";
 
 export default function CreateWalletScreen() {
   const router = useRouter();
@@ -41,15 +42,15 @@ export default function CreateWalletScreen() {
 
   return (
     <LinearGradient
-      colors={["#07162C", "#0E335E", "#0B5997"]}
+      colors={[Colors.cardGradientStart, Colors.cardGradientEnd]}
       style={styles.container}
     >
       <SafeAreaView style={styles.safe}>
-        <StatusBar barStyle="light-content" />
+        <StatusBar barStyle="dark-content" />
 
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={22} color="#FFF" />
+            <Ionicons name="arrow-back" size={22} color={Colors.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Recovery Phrase</Text>
           <View style={{ width: 22 }} />
@@ -62,7 +63,7 @@ export default function CreateWalletScreen() {
           <View>
             <Text style={styles.warning}>
               ⚠️ Write these 12 words down in order and store them somewhere
-              safe. Anyone with this phrase can access your funds. TrustWallet
+              safe. Anyone with this phrase can access your funds. Wallet
               cannot recover it for you if it's lost.
             </Text>
 
@@ -76,7 +77,7 @@ export default function CreateWalletScreen() {
                 onPress={() => setRevealed(true)}
                 disabled={loading}
               >
-                <Ionicons name="eye-off-outline" size={28} color="#A0B3D6" />
+                <Ionicons name="eye-off-outline" size={28} color={Colors.textSecondary} />
                 <Text style={styles.revealText}>
                   {loading
                     ? "Generating your wallet..."
@@ -124,7 +125,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 14,
   },
-  headerTitle: { color: "#FFF", fontSize: 16, fontWeight: "600" },
+  headerTitle: { color: Colors.textPrimary, fontSize: 16, fontWeight: "600" },
   scrollContent: {
     flexGrow: 1,
     justifyContent: "space-between",
@@ -132,31 +133,35 @@ const styles = StyleSheet.create({
   },
   warning: {
     fontSize: 13,
-    color: "#FFD166",
-    backgroundColor: "rgba(255, 209, 102, 0.1)",
+    color: "#854D0E",
+    backgroundColor: "rgba(217, 119, 6, 0.08)",
     padding: 14,
     borderRadius: 12,
     lineHeight: 19,
     marginTop: 10,
     marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "rgba(217, 119, 6, 0.2)",
   },
   errorBox: {
-    backgroundColor: "rgba(220, 38, 38, 0.15)",
+    backgroundColor: "rgba(255, 59, 48, 0.1)",
     padding: 16,
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255, 59, 48, 0.2)",
   },
-  errorText: { color: "#FCA5A5", fontSize: 13, lineHeight: 18 },
+  errorText: { color: Colors.negativeRed, fontSize: 13, lineHeight: 18 },
   revealBox: {
     height: 220,
     borderRadius: 16,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: Colors.surfaceCard,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
+    borderColor: Colors.border,
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
   },
-  revealText: { color: "#A0B3D6", fontSize: 14, fontWeight: "500" },
+  revealText: { color: Colors.textSecondary, fontSize: 14, fontWeight: "500" },
   wordGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -165,26 +170,26 @@ const styles = StyleSheet.create({
   wordChip: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: Colors.accentCyan,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
+    borderColor: Colors.border,
     borderRadius: 10,
     paddingVertical: 10,
     paddingHorizontal: 12,
     width: "30.5%",
     gap: 6,
   },
-  wordIndex: { color: "#64748B", fontSize: 11, fontWeight: "600" },
-  wordText: { color: "#FFF", fontSize: 13, fontWeight: "600" },
+  wordIndex: { color: Colors.textSecondary, fontSize: 11, fontWeight: "600" },
+  wordText: { color: Colors.textPrimary, fontSize: 13, fontWeight: "600" },
   continueBtn: {
-    backgroundColor: "#0090FF",
+    backgroundColor: Colors.primary,
     paddingVertical: 16,
     borderRadius: 14,
     alignItems: "center",
     marginTop: 24,
   },
   continueBtnDisabled: {
-    backgroundColor: "#33475F",
+    backgroundColor: Colors.disabled,
   },
-  continueBtnText: { color: "#FFF", fontWeight: "700", fontSize: 15 },
+  continueBtnText: { color: Colors.onPrimary, fontWeight: "700", fontSize: 15 },
 });

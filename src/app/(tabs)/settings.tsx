@@ -1,4 +1,5 @@
 import { useAuth } from "@/context/AuthContext";
+import { Colors } from "@/constants/Colors";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Clipboard from "expo-clipboard";
@@ -74,7 +75,7 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
-      <StatusBar barStyle="dark-content" />
+      <StatusBar barStyle="dark-content" backgroundColor={Colors.backgroundLight} />
 
       <View style={styles.header}>
         <View>
@@ -82,7 +83,7 @@ export default function SettingsScreen() {
           <Text style={styles.subtitle}>Manage your wallet experience</Text>
         </View>
         <View style={styles.headerIcon}>
-          <Ionicons name="settings-outline" size={21} color="#0560FA" />
+          <Ionicons name="settings-outline" size={21} color={Colors.textPrimary} />
         </View>
       </View>
 
@@ -136,8 +137,8 @@ export default function SettingsScreen() {
                   setCompactMode(value);
                   await AsyncStorage.setItem(COMPACT_MODE_KEY, JSON.stringify(value));
                 }}
-                trackColor={{ false: "#E2E8F0", true: "#93C5FD" }}
-                thumbColor={compactMode ? "#0560FA" : "#FFFFFF"}
+                trackColor={{ false: Colors.border, true: Colors.disabled }}
+                thumbColor={compactMode ? Colors.primary : Colors.backgroundLight}
               />
             }
           />
@@ -150,18 +151,18 @@ export default function SettingsScreen() {
             iconTone="green"
             title="Wallet security"
             subtitle="Your private keys stay on this device"
-            right={<Ionicons name="checkmark-circle" size={22} color="#00A878" />}
+            right={<Ionicons name="checkmark-circle" size={22} color={Colors.positiveGreen} />}
           />
           <Divider />
           <TouchableOpacity style={styles.actionRow} onPress={lockWallet}>
             <View style={[styles.rowIcon, styles.redIcon]}>
-              <Ionicons name="lock-closed-outline" size={19} color="#E5484D" />
+              <Ionicons name="lock-closed-outline" size={19} color={Colors.negativeRed} />
             </View>
             <View style={styles.rowText}>
               <Text style={styles.rowTitle}>Lock wallet</Text>
               <Text style={styles.rowSubtitle}>Require wallet unlock again</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color="#CBD5E1" />
+            <Ionicons name="chevron-forward" size={18} color={Colors.disabled} />
           </TouchableOpacity>
         </View>
 
@@ -179,7 +180,7 @@ export default function SettingsScreen() {
                   <Ionicons
                     name={copied ? "checkmark" : "copy-outline"}
                     size={16}
-                    color="#0560FA"
+                    color={Colors.textPrimary}
                   />
                   <Text style={styles.copyText}>{copied ? "Copied" : "Copy"}</Text>
                 </TouchableOpacity>
@@ -192,13 +193,13 @@ export default function SettingsScreen() {
         <View style={styles.card}>
           <TouchableOpacity style={styles.actionRow} onPress={clearWatchlist}>
             <View style={styles.rowIcon}>
-              <Ionicons name="star-outline" size={19} color="#64748B" />
+              <Ionicons name="star-outline" size={19} color={Colors.textSecondary} />
             </View>
             <View style={styles.rowText}>
               <Text style={styles.rowTitle}>Clear watchlist</Text>
               <Text style={styles.rowSubtitle}>Remove all saved market coins</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color="#CBD5E1" />
+            <Ionicons name="chevron-forward" size={18} color={Colors.disabled} />
           </TouchableOpacity>
         </View>
 
@@ -215,7 +216,7 @@ export default function SettingsScreen() {
             icon="pulse-outline"
             title="Market data"
             subtitle="Prices are provided by CoinGecko"
-            right={<Ionicons name="open-outline" size={17} color="#94A3B8" />}
+            right={<Ionicons name="open-outline" size={17} color={Colors.textSecondary} />}
           />
         </View>
 
@@ -251,7 +252,11 @@ function SettingRow({
   return (
     <View style={styles.settingRow}>
       <View style={[styles.rowIcon, iconTone === "green" && styles.greenIcon]}>
-        <Ionicons name={icon} size={19} color={iconTone === "green" ? "#00A878" : "#64748B"} />
+        <Ionicons
+          name={icon}
+          size={19}
+          color={iconTone === "green" ? Colors.positiveGreen : Colors.textSecondary}
+        />
       </View>
       <View style={styles.rowText}>
         <Text style={styles.rowTitle}>{title}</Text>
@@ -263,7 +268,7 @@ function SettingRow({
 }
 
 const styles = StyleSheet.create({
-  safeArea: { backgroundColor: "#F8FAFC" },
+  safeArea: { flex: 1, backgroundColor: Colors.backgroundLight },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -272,32 +277,34 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 8,
   },
-  title: { fontSize: 25, fontWeight: "800", color: "#0F172A" },
-  subtitle: { fontSize: 12, color: "#94A3B8", marginTop: 3 },
+  title: { fontSize: 25, fontWeight: "800", color: Colors.textPrimary },
+  subtitle: { fontSize: 12, color: Colors.textSecondary, marginTop: 3 },
   headerIcon: {
     width: 42,
     height: 42,
     borderRadius: 13,
-    backgroundColor: "#EFF6FF",
+    backgroundColor: Colors.accentCyan,
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   content: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 110 },
   sectionTitle: {
     fontSize: 11,
     fontWeight: "800",
     letterSpacing: 0.8,
-    color: "#94A3B8",
+    color: Colors.textSecondary,
     marginTop: 16,
     marginBottom: 8,
     marginLeft: 3,
     textTransform: "uppercase",
   },
   card: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: Colors.surfaceCard,
     borderRadius: 17,
     borderWidth: 1,
-    borderColor: "#EEF2F6",
+    borderColor: Colors.border,
     overflow: "hidden",
   },
   settingRow: {
@@ -317,49 +324,53 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 11,
-    backgroundColor: "#F8FAFC",
+    backgroundColor: Colors.accentCyan,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
   },
-  greenIcon: { backgroundColor: "#ECFDF5" },
-  redIcon: { backgroundColor: "#FFF1F2" },
+  greenIcon: { backgroundColor: "#E8F8EE" },
+  redIcon: { backgroundColor: "#FFEBEA" },
   rowText: { flex: 1, paddingRight: 10 },
-  rowTitle: { fontSize: 14, fontWeight: "700", color: "#1E293B" },
-  rowSubtitle: { fontSize: 11.5, color: "#94A3B8", marginTop: 3, lineHeight: 16 },
-  divider: { height: 1, backgroundColor: "#F1F5F9", marginLeft: 64 },
+  rowTitle: { fontSize: 14, fontWeight: "700", color: Colors.textPrimary },
+  rowSubtitle: { fontSize: 11.5, color: Colors.textSecondary, marginTop: 3, lineHeight: 16 },
+  divider: { height: 1, backgroundColor: Colors.border, marginLeft: 64 },
   currencyToggle: {
     flexDirection: "row",
-    backgroundColor: "#F1F5F9",
+    backgroundColor: Colors.accentCyan,
     padding: 3,
     borderRadius: 11,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   currencyPill: { paddingHorizontal: 9, paddingVertical: 6, borderRadius: 8 },
   currencyPillActive: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: Colors.surfaceCard,
     shadowColor: "#000",
     shadowOpacity: 0.05,
     shadowRadius: 3,
     elevation: 1,
   },
-  currencyPillText: { fontSize: 11, fontWeight: "700", color: "#64748B" },
-  currencyPillTextActive: { color: "#0560FA" },
+  currencyPillText: { fontSize: 11, fontWeight: "700", color: Colors.textSecondary },
+  currencyPillTextActive: { color: Colors.textPrimary },
   copyButton: {
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    backgroundColor: "#EFF6FF",
+    backgroundColor: Colors.accentCyan,
     paddingHorizontal: 10,
     paddingVertical: 7,
     borderRadius: 9,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
-  copyText: { fontSize: 11, fontWeight: "700", color: "#0560FA" },
-  version: { fontSize: 11, fontWeight: "700", color: "#94A3B8" },
+  copyText: { fontSize: 11, fontWeight: "700", color: Colors.textPrimary },
+  version: { fontSize: 11, fontWeight: "700", color: Colors.textSecondary },
   footerText: {
     textAlign: "center",
     fontSize: 11,
     lineHeight: 17,
-    color: "#94A3B8",
+    color: Colors.textSecondary,
     paddingHorizontal: 30,
     marginTop: 24,
   },

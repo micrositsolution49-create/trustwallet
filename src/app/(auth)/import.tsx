@@ -21,6 +21,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system";
+import { Colors } from "@/constants/Colors";
 
 type ImportMode = "phrase" | "privateKey" | "keystore";
 
@@ -87,11 +88,11 @@ export default function ImportWalletScreen() {
 
   return (
     <LinearGradient
-      colors={["#07162C", "#0E335E", "#0B5997"]}
+      colors={[Colors.cardGradientStart, Colors.cardGradientEnd]}
       style={styles.container}
     >
       <SafeAreaView style={styles.safe}>
-        <StatusBar barStyle="light-content" />
+        <StatusBar barStyle="dark-content" />
 
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -99,7 +100,7 @@ export default function ImportWalletScreen() {
         >
           <View style={styles.header}>
             <TouchableOpacity onPress={() => router.back()}>
-              <Ionicons name="arrow-back" size={22} color="#FFF" />
+              <Ionicons name="arrow-back" size={22} color={Colors.textPrimary} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Import Wallet</Text>
             <View style={{ width: 22 }} />
@@ -178,7 +179,7 @@ export default function ImportWalletScreen() {
             {mode === "keystore" ? (
               <View style={{ marginBottom: 10 }}>
                 <TouchableOpacity style={styles.filePickerBtn} onPress={pickKeystoreFile}>
-                  <Ionicons name="document-text-outline" size={20} color="#0090FF" />
+                  <Ionicons name="document-text-outline" size={20} color={Colors.primary} />
                   <Text style={styles.filePickerText} numberOfLines={1}>
                     {fileName ? fileName : "Select Keystore JSON File (.json)"}
                   </Text>
@@ -187,7 +188,7 @@ export default function ImportWalletScreen() {
                 <TextInput
                   style={[styles.textArea, { marginTop: 12, minHeight: 50 }]}
                   placeholder="Enter Keystore Password"
-                  placeholderTextColor="#64748B"
+                  placeholderTextColor={Colors.textSecondary}
                   secureTextEntry
                   value={keystorePassword}
                   onChangeText={(p) => {
@@ -205,7 +206,7 @@ export default function ImportWalletScreen() {
                     ? "word1 word2 word3 ..."
                     : "0x... or private key string"
                 }
-                placeholderTextColor="#64748B"
+                placeholderTextColor={Colors.textSecondary}
                 value={inputVal}
                 onChangeText={(t) => {
                   setInputVal(t);
@@ -227,7 +228,7 @@ export default function ImportWalletScreen() {
                 </Text>
                 {(wordCount === 12 || wordCount === 24) && (
                   <View style={styles.validBadge}>
-                    <Ionicons name="checkmark-circle" size={14} color="#00D18F" />
+                    <Ionicons name="checkmark-circle" size={14} color={Colors.positiveGreen} />
                     <Text style={styles.validBadgeText}>Valid length</Text>
                   </View>
                 )}
@@ -239,7 +240,7 @@ export default function ImportWalletScreen() {
                 </Text>
                 {isPrivateKeyValid && (
                   <View style={styles.validBadge}>
-                    <Ionicons name="checkmark-circle" size={14} color="#00D18F" />
+                    <Ionicons name="checkmark-circle" size={14} color={Colors.positiveGreen} />
                     <Text style={styles.validBadgeText}>Ready</Text>
                   </View>
                 )}
@@ -251,7 +252,7 @@ export default function ImportWalletScreen() {
                 </Text>
                 {isKeystoreValid && (
                   <View style={styles.validBadge}>
-                    <Ionicons name="checkmark-circle" size={14} color="#00D18F" />
+                    <Ionicons name="checkmark-circle" size={14} color={Colors.positiveGreen} />
                     <Text style={styles.validBadgeText}>Ready</Text>
                   </View>
                 )}
@@ -265,7 +266,7 @@ export default function ImportWalletScreen() {
             )}
 
             <View style={styles.warningBox}>
-              <Ionicons name="warning-outline" size={16} color="#FFD166" />
+              <Ionicons name="warning-outline" size={16} color="#D97706" />
               <Text style={styles.warningText}>
                 Never share your credentials. Anyone with your recovery phrase, private key, or keystore file will have full control of your funds.
               </Text>
@@ -299,17 +300,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 14,
   },
-  headerTitle: { color: "#FFF", fontSize: 16, fontWeight: "600" },
+  headerTitle: { color: Colors.textPrimary, fontSize: 16, fontWeight: "600" },
   scrollContent: { paddingBottom: 30 },
   tabContainer: {
     flexDirection: "row",
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: Colors.accentCyan,
     borderRadius: 12,
     padding: 4,
     marginTop: 10,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
+    borderColor: Colors.border,
   },
   tab: {
     flex: 1,
@@ -318,44 +319,44 @@ const styles = StyleSheet.create({
     borderRadius: 9,
   },
   activeTab: {
-    backgroundColor: "#0090FF",
+    backgroundColor: Colors.primary,
   },
   tabText: {
-    color: "#94A3B8",
+    color: Colors.textSecondary,
     fontSize: 11,
     fontWeight: "600",
   },
   activeTabText: {
-    color: "#FFF",
+    color: Colors.onPrimary,
   },
   instruction: {
     fontSize: 14,
-    color: "#A0B3D6",
+    color: Colors.textSecondary,
     lineHeight: 20,
     marginBottom: 16,
   },
   textArea: {
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: Colors.surfaceCard,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.15)",
+    borderColor: Colors.border,
     borderRadius: 14,
     padding: 14,
-    color: "#FFF",
+    color: Colors.textPrimary,
     fontSize: 15,
     minHeight: 110,
   },
   filePickerBtn: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: Colors.surfaceCard,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.15)",
+    borderColor: Colors.border,
     borderRadius: 14,
     padding: 16,
     gap: 10,
   },
   filePickerText: {
-    color: "#FFF",
+    color: Colors.textPrimary,
     fontSize: 14,
     flex: 1,
   },
@@ -365,33 +366,33 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 10,
   },
-  wordCountText: { color: "#64748B", fontSize: 12 },
+  wordCountText: { color: Colors.textSecondary, fontSize: 12 },
   validBadge: { flexDirection: "row", alignItems: "center", gap: 4 },
-  validBadgeText: { color: "#00D18F", fontSize: 12, fontWeight: "600" },
+  validBadgeText: { color: Colors.positiveGreen, fontSize: 12, fontWeight: "600" },
   errorBox: {
-    backgroundColor: "rgba(220, 38, 38, 0.15)",
+    backgroundColor: "rgba(255, 59, 48, 0.1)",
     padding: 12,
     borderRadius: 10,
     marginTop: 16,
   },
-  errorText: { color: "#FCA5A5", fontSize: 13, lineHeight: 18 },
+  errorText: { color: Colors.negativeRed, fontSize: 13, lineHeight: 18 },
   warningBox: {
     flexDirection: "row",
     gap: 8,
-    backgroundColor: "rgba(255, 209, 102, 0.08)",
+    backgroundColor: "rgba(217, 119, 6, 0.08)",
     padding: 12,
     borderRadius: 10,
     marginTop: 20,
     alignItems: "flex-start",
   },
-  warningText: { flex: 1, color: "#FFD166", fontSize: 12, lineHeight: 17 },
+  warningText: { flex: 1, color: "#D97706", fontSize: 12, lineHeight: 17 },
   importBtn: {
-    backgroundColor: "#0090FF",
+    backgroundColor: Colors.primary,
     paddingVertical: 16,
     borderRadius: 14,
     alignItems: "center",
     marginTop: 26,
   },
-  importBtnDisabled: { backgroundColor: "#33475F" },
-  importBtnText: { color: "#FFF", fontWeight: "700", fontSize: 15 },
+  importBtnDisabled: { backgroundColor: Colors.disabled },
+  importBtnText: { color: Colors.onPrimary, fontWeight: "700", fontSize: 15 },
 });

@@ -1,4 +1,5 @@
 import { fetchCryptoPrices, fetchUsdtInrRate } from "@/services/cryptoService";
+import LivePriceChart from "@/components/LivePriceChart";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -130,6 +131,8 @@ export default function BrowserScreen() {
 
   // Watchlist state
   const [watchlist, setWatchlist] = useState<string[]>([]);
+  const [selectedCoin, setSelectedCoin] = useState<CryptoCoin | null>(null);
+  const [usdtInrRate, setUsdtInrRate] = useState(96);
 
   // Load watchlist on app start
   useEffect(() => {
@@ -233,6 +236,8 @@ export default function BrowserScreen() {
         const [prices, usdtInrRate] = await Promise.all([fetchCryptoPrices(), fetchUsdtInrRate()]);
 
         if (!mounted) return;
+
+        setUsdtInrRate(usdtInrRate);
 
         setCoins((prevCoins) =>
           prevCoins.map((coin) => {
@@ -409,8 +414,10 @@ export default function BrowserScreen() {
               const isWatchlisted = watchlist.includes(coin.id);
 
               return (
-                <View
+                <TouchableOpacity
                   key={coin.id}
+                  activeOpacity={0.85}
+                  onPress={() => setSelectedCoin(coin)}
                   style={[
                     styles.cryptoRow,
                     compactMode && styles.compactCryptoRow,
@@ -519,7 +526,7 @@ export default function BrowserScreen() {
                       />
                     </TouchableOpacity>
                   </View>
-                </View>
+                </TouchableOpacity>
               );
             })
           ) : (
@@ -533,6 +540,48 @@ export default function BrowserScreen() {
           )}
         </View>
       </ScrollView>
+
+      {/* Coin Price Chart */}
+      <Modal
+        visible={selectedCoin !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSelectedCoin(null)}
+      >
+        <View style={styles.chartModalOverlay}>
+          <TouchableOpacity
+            style={styles.chartModalBackdrop}
+            activeOpacity={1}
+            onPress={() => setSelectedCoin(null)}
+          />
+          <View style={styles.chartModal}>
+            <View style={styles.chartModalHeader}>
+              <View>
+                <Text style={styles.chartModalTitle}>
+                  {selectedCoin?.name ?? "Crypto"}
+                </Text>
+                <Text style={styles.chartModalSymbol}>
+                  {selectedCoin?.symbol.toUpperCase() ?? ""}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.chartCloseBtn}
+                onPress={() => setSelectedCoin(null)}
+              >
+                <Ionicons name="close" size={20} color="#0F172A" />
+              </TouchableOpacity>
+            </View>
+
+            {selectedCoin && (
+              <LivePriceChart
+                symbol={selectedCoin.symbol}
+                currency={currency}
+                usdtInrRate={usdtInrRate}
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
 
       {/* Hamburger Drawer */}
       <Modal
@@ -959,6 +1008,53 @@ const styles = StyleSheet.create({
   },
 
   /* DRAWER */
+
+  chartModalOverlay: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(15, 23, 42, 0.28)",
+  },
+
+  chartModalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+
+  chartModal: {
+    backgroundColor: "#F8FAFC",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 18,
+    paddingBottom: 28,
+  },
+
+  chartModalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 14,
+  },
+
+  chartModalTitle: {
+    fontSize: 19,
+    fontWeight: "800",
+    color: "#0F172A",
+  },
+
+  chartModalSymbol: {
+    marginTop: 2,
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#94A3B8",
+  },
+
+  chartCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
 
   drawerOverlay: {
     flex: 1,

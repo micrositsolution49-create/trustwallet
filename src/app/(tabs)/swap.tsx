@@ -1,3 +1,4 @@
+import { Colors } from "@/constants/Colors";
 import { useAuth } from "@/context/AuthContext";
 import { useWallet } from "@/context/WalletContext";
 import {
@@ -7,14 +8,15 @@ import {
   getTokenBalance,
   TOKENS_CONFIG,
 } from "@/services/cryptoService";
-import { executeBlockchainTransaction } from "@/services/transactionService";
-import { Colors } from "@/constants/Colors";
-import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from "@expo/vector-icons";
-import { useEffect, useState } from "react";
+import { executeSwapPair } from "@/services/transactionService";
+import { FontAwesome5, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   StatusBar,
   StyleSheet,
@@ -24,96 +26,282 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
 
-// Real Crypto Icon Helper based on symbol
+type Token = {
+  symbol: string;
+  name: string;
+  balance: string;
+  icon: string;
+  color: string;
+  network: string;
+};
+
+const SUPPORTED_TOKENS: Omit<Token, "balance" | "network">[] = [
+  { symbol: "ETH", name: "Ethereum", icon: "ethereum", color: "#627EEA" },
+  { symbol: "USDC", name: "USD Coin", icon: "currency-usd", color: "#2775CA" },
+  { symbol: "USDT", name: "Tether", icon: "currency-usd", color: "#26A17B" },
+  { symbol: "BTC", name: "Bitcoin", icon: "bitcoin", color: "#F7931A" },
+  { symbol: "BNB", name: "BNB", icon: "alpha-b-box", color: "#F3BA2F" },
+  { symbol: "SOL", name: "Solana", icon: "flash", color: "#14F195" },
+  { symbol: "XRP", name: "XRP", icon: "alpha-x-box", color: "#23292F" },
+  { symbol: "ADA", name: "Cardano", icon: "alpha-a-box", color: "#0033AD" },
+  { symbol: "DOGE", name: "Dogecoin", icon: "dog", color: "#C2A633" },
+  { symbol: "DOT", name: "Polkadot", icon: "circle", color: "#E6007A" },
+  { symbol: "AVAX", name: "Avalanche", icon: "triangle", color: "#E84142" },
+  { symbol: "LINK", name: "Chainlink", icon: "link", color: "#2A5ADA" },
+];
+
+const INITIAL_PRICES: Record<string, number> = {
+  ETH: 2648.5,
+  USDC: 1,
+  USDT: 1,
+  BTC: 65000,
+  BNB: 580,
+  SOL: 150,
+  XRP: 0.55,
+  ADA: 0.4,
+  DOGE: 0.12,
+  DOT: 4.5,
+  AVAX: 25,
+  LINK: 12,
+};
+
 const getCoinIconDetails = (symbol: string) => {
-  const upperSymbol = symbol?.toUpperCase() || "";
-  switch (upperSymbol) {
+  switch (symbol.toUpperCase()) {
     case "ETH":
       return { name: "ethereum", type: "material-community", bg: "#627EEA" };
     case "USDC":
       return { name: "currency-usd", type: "material-community", bg: "#2775CA" };
     case "USDT":
-      return { name: "t-bitcoin", type: "material-community", bg: "#26A17B" };
+      return { name: "currency-usd", type: "material-community", bg: "#26A17B" };
     case "BTC":
       return { name: "bitcoin", type: "material-community", bg: "#F7931A" };
     case "SOL":
       return { name: "flash", type: "material-community", bg: "#14F195" };
-    case "MATIC":
-    case "POL":
-      return { name: "polygon", type: "material-community", bg: "#8247E5" };
     case "BNB":
       return { name: "alpha-b-box", type: "material-community", bg: "#F3BA2F" };
+    case "XRP":
+      return { name: "alpha-x-box", type: "material-community", bg: "#23292F" };
+    case "ADA":
+      return { name: "alpha-a-box", type: "material-community", bg: "#0033AD" };
+    case "DOGE":
+      return { name: "dog", type: "material-community", bg: "#C2A633" };
+    case "DOT":
+      return { name: "circle", type: "material-community", bg: "#E6007A" };
+    case "AVAX":
+      return { name: "triangle", type: "material-community", bg: "#E84142" };
+    case "LINK":
+      return { name: "link", type: "material-community", bg: "#2A5ADA" };
     default:
       return { name: "coins", type: "font-awesome5", bg: Colors.primary };
   }
 };
 
+const createToken = (symbol: string, balance = "0"): Token => {
+  const token = SUPPORTED_TOKENS.find((item) => item.symbol.toUpperCase() === symbol.toUpperCase());
+
+  return {
+    symbol: token?.symbol ?? symbol.toUpperCase(),
+    name: token?.name ?? symbol,
+    icon: token?.icon ?? "coins",
+    color: token?.color ?? Colors.primary,
+    balance,
+    network: "localhost",
+  };
+};
+
 export default function SwapScreen() {
   const { address } = useAuth();
   const router = useRouter();
-  const { updateTokenBalanceLocally } = useWallet();
+  const { loadWalletData } = useWallet();
 
-  const [fromToken, setFromToken] = useState({
-    symbol: "ETH",
-    name: "Ethereum",
-    balance: "1.5000",
-    icon: "ethereum",
-    color: "#627EEA",
-    network: "ethereum",
-  });
-  const [toToken, setToToken] = useState({
-    symbol: "USDC",
-    name: "USDC",
-    balance: "0.31",
-    icon: "currency-usd",
-    color: "#2775CA",
-    network: "ethereum",
-  });
+  const [fromToken, setFromToken] = useState<Token>(() => createToken("ETH", "0"));
+  const [toToken, setToToken] = useState<Token>(() => createToken("USDC", "0"));
 
   const [payAmount, setPayAmount] = useState("0.001");
-  const [ethRate, setEthRate] = useState(2648.5);
   const [usdtInrRate, setUsdtInrRate] = useState(88);
   const [loading, setLoading] = useState(false);
   const [swapping, setSwapping] = useState(false);
+  const [tokenPickerFor, setTokenPickerFor] = useState<"from" | "to" | null>(null);
+  const [marketPrices, setMarketPrices] = useState<Record<string, number>>(INITIAL_PRICES);
+
+  const fromPrice = marketPrices[fromToken.symbol.toUpperCase()] ?? 0;
+  const toPrice = marketPrices[toToken.symbol.toUpperCase()] ?? 0;
+
+  const amount = Number(payAmount || 0);
 
   const receiveAmount = (() => {
-    const amount = parseFloat(payAmount || "0");
-
-    if (!Number.isFinite(amount) || amount <= 0) {
+    if (!Number.isFinite(amount) || amount <= 0 || fromPrice <= 0 || toPrice <= 0) {
       return "0.00";
     }
 
-    if (fromToken.symbol.toUpperCase() === "ETH" && toToken.symbol.toUpperCase() === "USDC") {
-      return (amount * ethRate).toFixed(6);
-    }
-
-    if (fromToken.symbol.toUpperCase() === "USDC" && toToken.symbol.toUpperCase() === "ETH") {
-      return (amount / ethRate).toFixed(6);
-    }
-
-    return "0.00";
+    return ((amount * fromPrice) / toPrice).toFixed(6);
   })();
 
-  const handleConfirmSwap = async () => {
+  const receiveNum = Number(receiveAmount) || 0;
+  const usdValue = (Number(payAmount) || 0) * fromPrice;
+  const inrValue = usdValue * usdtInrRate;
+  const receiveUsdValue = receiveNum * toPrice;
+  const receiveInrValue = receiveUsdValue * usdtInrRate;
+
+  const fmtUsd = (value: number) =>
+    value.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
+  const fmtInr = (value: number) =>
+    value.toLocaleString("en-IN", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
+  const loadTokenBalance = useCallback(
+    async (symbol: string): Promise<string> => {
+      if (!address) return "0";
+
+      const config = TOKENS_CONFIG.find(
+        (token) => token.symbol.toUpperCase() === symbol.toUpperCase(),
+      );
+
+      if (!config) return "0";
+
+      try {
+        if (config.type === "native") {
+          return await getNativeBalance(address, config.network);
+        }
+
+        if (config.contractAddress) {
+          return await getTokenBalance(address, config);
+        }
+
+        return "0";
+      } catch (error) {
+        console.error(`Failed to load ${symbol} balance:`, error);
+        return "0";
+      }
+    },
+    [address],
+  );
+
+  const loadSwapData = useCallback(async () => {
     if (!address) {
-      Alert.alert("Error", "Wallet not connected.");
+      setFromToken((previous) => ({ ...previous, balance: "0" }));
+      setToToken((previous) => ({ ...previous, balance: "0" }));
       return;
     }
 
-    const enteredAmount = parseFloat(payAmount);
-    const availableBalance = parseFloat(fromToken.balance);
+    setLoading(true);
 
-    if (isNaN(enteredAmount) || enteredAmount <= 0) {
-      Alert.alert("Invalid Amount", "Please enter a valid amount greater than 0.");
+    try {
+      const [prices, inrRate] = await Promise.all([fetchCryptoPrices(), fetchUsdtInrRate()]);
+
+      const idToSymbol: Record<string, string> = {
+        ethereum: "ETH",
+        "usd-coin": "USDC",
+        tether: "USDT",
+        bitcoin: "BTC",
+        binancecoin: "BNB",
+        solana: "SOL",
+        ripple: "XRP",
+        cardano: "ADA",
+        dogecoin: "DOGE",
+        polkadot: "DOT",
+        "avalanche-2": "AVAX",
+        chainlink: "LINK",
+      };
+
+      const nextPrices: Record<string, number> = {};
+
+      Object.entries(prices ?? {}).forEach(([id, value]: [string, any]) => {
+        const symbol = idToSymbol[id];
+        const usdPrice = Number(value?.usd);
+
+        if (symbol && Number.isFinite(usdPrice) && usdPrice > 0) {
+          nextPrices[symbol] = usdPrice;
+        }
+      });
+
+      setMarketPrices((current) => ({ ...current, ...nextPrices }));
+
+      if (Number.isFinite(Number(inrRate)) && Number(inrRate) > 0) {
+        setUsdtInrRate(Number(inrRate));
+      }
+
+      const [fromBalance, toBalance] = await Promise.all([
+        loadTokenBalance(fromToken.symbol),
+        loadTokenBalance(toToken.symbol),
+      ]);
+
+      setFromToken((previous) => ({
+        ...previous,
+        balance: Number(fromBalance || 0).toFixed(6),
+      }));
+
+      setToToken((previous) => ({
+        ...previous,
+        balance: Number(toBalance || 0).toFixed(6),
+      }));
+    } catch (error) {
+      console.error("Failed to load swap data:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [address, fromToken.symbol, toToken.symbol, loadTokenBalance]);
+
+  useEffect(() => {
+    void loadSwapData();
+  }, [loadSwapData]);
+
+  const handleSelectToken = (symbol: string) => {
+    const selectedToken = createToken(symbol, "0");
+
+    if (tokenPickerFor === "from") {
+      if (symbol === toToken.symbol) return;
+      setFromToken(selectedToken);
+    } else if (tokenPickerFor === "to") {
+      if (symbol === fromToken.symbol) return;
+      setToToken(selectedToken);
+    }
+
+    setTokenPickerFor(null);
+    setPayAmount("0");
+  };
+
+  const handleSwitchTokens = () => {
+    setFromToken(toToken);
+    setToToken(fromToken);
+    setPayAmount("0");
+  };
+
+  const handleMaxAmount = () => {
+    const balance = Number(fromToken.balance) || 0;
+
+    // Keep a small ETH reserve for network gas fees.
+    const reserveForGas = fromToken.symbol.toUpperCase() === "ETH" ? 0.01 : 0;
+
+    const maxAmount = Math.max(0, balance - reserveForGas);
+    setPayAmount(maxAmount.toFixed(6));
+  };
+
+  const handleConfirmSwap = async () => {
+    if (!address) {
+      Alert.alert("Wallet not connected", "Please connect your wallet first.");
+      return;
+    }
+
+    const enteredAmount = Number(payAmount);
+    const availableBalance = Number(fromToken.balance);
+
+    if (!Number.isFinite(enteredAmount) || enteredAmount <= 0) {
+      Alert.alert("Invalid Amount", "Please enter an amount greater than zero.");
       return;
     }
 
     if (enteredAmount > availableBalance) {
       Alert.alert(
         "Insufficient Balance",
-        `Aapke paas sirf ${availableBalance} ${fromToken.symbol} available hai, lekin aap ${enteredAmount} ${fromToken.symbol} swap karne ki koshish kar rahe ho.`,
+        `Available balance: ${fromToken.balance} ${fromToken.symbol}`,
       );
       return;
     }
@@ -121,124 +309,54 @@ export default function SwapScreen() {
     try {
       setSwapping(true);
 
-      const txHash = await executeBlockchainTransaction(payAmount, address);
-
-      const remainingBalance = Math.max(0, availableBalance - enteredAmount).toFixed(4);
-      const currentToBalance = parseFloat(toToken.balance || "0");
-      const addedReceiveAmount = parseFloat(receiveAmount || "0");
-      const updatedToBalance = (currentToBalance + addedReceiveAmount).toFixed(2);
-
-      updateTokenBalanceLocally(
+      const txHash = await executeSwapPair(
         fromToken.symbol,
         toToken.symbol,
-        enteredAmount,
-        addedReceiveAmount,
+        payAmount,
+        receiveAmount,
+        address,
       );
+      const [remainingBalance, updatedToBalance] = await Promise.all([
+        loadTokenBalance(fromToken.symbol),
+        loadTokenBalance(toToken.symbol),
+      ]);
 
-      setFromToken((prev) => ({ ...prev, balance: remainingBalance }));
-      setToToken((prev) => ({ ...prev, balance: updatedToBalance }));
+      setFromToken((previous) => ({
+        ...previous,
+        balance: Number(remainingBalance || 0).toFixed(6),
+      }));
+
+      setToToken((previous) => ({
+        ...previous,
+        balance: Number(updatedToBalance || 0).toFixed(6),
+      }));
+
+      await loadWalletData(false);
 
       Alert.alert(
-        "🎉 Swap Successful!",
-        `Successfully swapped ${payAmount} ${fromToken.symbol}.\n\n` +
-          `• New ${fromToken.symbol} Balance: ${remainingBalance}\n` +
-          `• New ${toToken.symbol} Balance: ${updatedToBalance}\n` +
-          `• Hash: ${txHash ? txHash.substring(0, 15) + "..." : "0x1293...abc"}`,
+        "Transaction confirmed",
+        `Local demo transaction mined successfully.\n\n` +
+          `${fromToken.symbol}: ${Number(remainingBalance).toFixed(6)}\n` +
+          `${toToken.symbol}: ${Number(updatedToBalance).toFixed(6)}\n\n` +
+          `Transaction: ${txHash.substring(0, 15)}...`,
         [
           {
             text: "OK",
-            onPress: () => {
-              setPayAmount("0.0");
-            },
+            onPress: () => setPayAmount("0"),
           },
         ],
       );
     } catch (error: any) {
-      console.error("Transaction failed:", error);
-      Alert.alert("Failed", error.message || "Transaction could not be completed.");
+      console.error("Swap transaction failed:", error);
+      Alert.alert("Swap failed", error?.message || "Transaction could not be completed.");
     } finally {
       setSwapping(false);
     }
   };
 
-  const loadSwapData = async () => {
-    if (!address) return;
-
-    try {
-      setLoading(true);
-      const [prices, inrRate] = await Promise.all([fetchCryptoPrices(), fetchUsdtInrRate()]);
-
-      if (prices?.ethereum?.usd) {
-        setEthRate(Number(prices.ethereum.usd));
-      }
-
-      if (Number.isFinite(inrRate) && inrRate > 0) {
-        setUsdtInrRate(Number(inrRate));
-      }
-
-      const ethBalance = await getNativeBalance(address, "localhost");
-
-      if (ethBalance && !isNaN(Number(ethBalance))) {
-        setFromToken((prev) => ({
-          ...prev,
-          balance: parseFloat(ethBalance).toFixed(4),
-        }));
-      }
-
-      const tokenConfig = TOKENS_CONFIG.find(
-        (token) => token.symbol.toUpperCase() === toToken.symbol.toUpperCase(),
-      );
-
-      if (tokenConfig) {
-        let tokenBalance = "0";
-
-        if (tokenConfig.type === "native") {
-          tokenBalance = await getNativeBalance(address, tokenConfig.network);
-        } else if (tokenConfig.contractAddress) {
-          tokenBalance = await getTokenBalance(address, tokenConfig);
-        }
-
-        if (tokenBalance && !isNaN(Number(tokenBalance))) {
-          const details = getCoinIconDetails(tokenConfig.symbol);
-          setToToken((prev) => ({
-            ...prev,
-            symbol: tokenConfig.symbol,
-            name: tokenConfig.name,
-            balance: parseFloat(tokenBalance).toFixed(2),
-            color: details.bg,
-          }));
-        }
-      }
-    } catch (err) {
-      console.error("Failed to load swap rates/balances:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadSwapData();
-  }, [address]);
-
-  const handleSwitchTokens = () => {
-    const temp = fromToken;
-    setFromToken(toToken);
-    setToToken(temp);
-    setPayAmount("0.0");
-  };
-
-  const usdValue = parseFloat(payAmount || "0") * (fromToken.symbol === "ETH" ? ethRate : 1);
-  const inrValue = usdValue * usdtInrRate;
-
-  const receiveNum = parseFloat(receiveAmount) || 0;
-  const fmtUsd = (n: number) =>
-    n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const fmtInr = (n: number) =>
-    n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-  // Helper to render dynamic custom styled coin icon component
   const renderCoinIcon = (symbol: string) => {
     const iconMeta = getCoinIconDetails(symbol);
+
     return (
       <View style={[styles.tokenIcon, { backgroundColor: iconMeta.bg }]}>
         {iconMeta.type === "font-awesome5" ? (
@@ -259,26 +377,89 @@ export default function SwapScreen() {
         <TouchableOpacity style={styles.headerBtn} onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={22} color={Colors.textPrimary} />
         </TouchableOpacity>
+
         <Text style={styles.title}>Swap</Text>
-        <TouchableOpacity style={styles.headerBtn}>
-          <Ionicons name="options-outline" size={20} color={Colors.textPrimary} />
+
+        <TouchableOpacity
+          style={styles.headerBtn}
+          onPress={() => void loadSwapData()}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator size="small" color={Colors.primary} />
+          ) : (
+            <Ionicons name="refresh-outline" size={20} color={Colors.textPrimary} />
+          )}
         </TouchableOpacity>
       </View>
+
+      {/* Token picker modal */}
+      <Modal
+        visible={tokenPickerFor !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setTokenPickerFor(null)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select cryptocurrency</Text>
+
+              <TouchableOpacity onPress={() => setTokenPickerFor(null)}>
+                <Ionicons name="close" size={24} color={Colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {SUPPORTED_TOKENS.filter(
+              (token) =>
+                token.symbol !== (tokenPickerFor === "from" ? toToken.symbol : fromToken.symbol),
+            ).map((token) => (
+              <TouchableOpacity
+                key={token.symbol}
+                onPress={() => handleSelectToken(token.symbol)}
+                style={styles.tokenOption}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.optionIcon, { backgroundColor: token.color }]}>
+                  <MaterialCommunityIcons name={token.icon as any} size={21} color="#FFFFFF" />
+                </View>
+
+                <View style={styles.optionInfo}>
+                  <Text style={styles.optionName}>{token.name}</Text>
+                  <Text style={styles.optionSymbol}>{token.symbol}</Text>
+                </View>
+
+                <Text style={styles.optionPrice}>
+                  $
+                  {(marketPrices[token.symbol] ?? 0).toLocaleString("en-US", {
+                    maximumFractionDigits: 6,
+                  })}
+                </Text>
+              </TouchableOpacity>
+            ))}
+
+            <Text style={styles.modalNote}>
+              Prices are indicative. On-chain balances require a token configured in your blockchain
+              network.
+            </Text>
+          </View>
+        </View>
+      </Modal>
 
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <View style={styles.content}>
-          {/* From / To block */}
+          {/* You pay */}
           <View>
-            {/* From */}
             <View style={[styles.panel, styles.panelTop]}>
               <View style={styles.panelHeader}>
                 <Text style={styles.panelLabel}>You pay</Text>
+
                 <TouchableOpacity
                   style={styles.maxBtn}
-                  onPress={() => setPayAmount(fromToken.balance)}
+                  onPress={handleMaxAmount}
                   activeOpacity={0.7}
                 >
                   <Text style={styles.maxText}>MAX</Text>
@@ -290,12 +471,17 @@ export default function SwapScreen() {
                   style={styles.amountInput}
                   keyboardType="decimal-pad"
                   value={payAmount}
-                  onChangeText={(val) => setPayAmount(val)}
+                  onChangeText={setPayAmount}
                   placeholder="0.0"
                   placeholderTextColor={Colors.disabled}
                   numberOfLines={1}
                 />
-                <TouchableOpacity style={styles.tokenPill} activeOpacity={0.8}>
+
+                <TouchableOpacity
+                  style={styles.tokenPill}
+                  activeOpacity={0.8}
+                  onPress={() => setTokenPickerFor("from")}
+                >
                   {renderCoinIcon(fromToken.symbol)}
                   <Text style={styles.tokenSymbol}>{fromToken.symbol}</Text>
                   <Ionicons name="chevron-down" size={14} color={Colors.textSecondary} />
@@ -306,13 +492,14 @@ export default function SwapScreen() {
                 <Text style={styles.metaText} numberOfLines={1}>
                   ≈ ${fmtUsd(usdValue)} · ₹{fmtInr(inrValue)}
                 </Text>
+
                 <Text style={styles.metaText}>
                   Bal {fromToken.balance} {fromToken.symbol}
                 </Text>
               </View>
             </View>
 
-            {/* To */}
+            {/* You receive */}
             <View style={[styles.panel, styles.panelBottom]}>
               <View style={styles.panelHeader}>
                 <Text style={styles.panelLabel}>You receive</Text>
@@ -322,7 +509,12 @@ export default function SwapScreen() {
                 <Text style={styles.amountResult} numberOfLines={1} adjustsFontSizeToFit>
                   {receiveAmount}
                 </Text>
-                <TouchableOpacity style={styles.tokenPill} activeOpacity={0.8}>
+
+                <TouchableOpacity
+                  style={styles.tokenPill}
+                  activeOpacity={0.8}
+                  onPress={() => setTokenPickerFor("to")}
+                >
                   {renderCoinIcon(toToken.symbol)}
                   <Text style={styles.tokenSymbol}>{toToken.symbol}</Text>
                   <Ionicons name="chevron-down" size={14} color={Colors.textSecondary} />
@@ -331,15 +523,16 @@ export default function SwapScreen() {
 
               <View style={styles.metaRow}>
                 <Text style={styles.metaText} numberOfLines={1}>
-                  ≈ ${fmtUsd(receiveNum)} · ₹{fmtInr(receiveNum * usdtInrRate)}
+                  ≈ ${fmtUsd(receiveUsdValue)} · ₹{fmtInr(receiveInrValue)}
                 </Text>
+
                 <Text style={styles.metaText}>
                   Bal {toToken.balance} {toToken.symbol}
                 </Text>
               </View>
             </View>
 
-            {/* Switch button, sits on the seam between the two panels */}
+            {/* Switch tokens */}
             <View style={styles.switchWrap} pointerEvents="box-none">
               <TouchableOpacity
                 style={styles.switchButton}
@@ -351,28 +544,43 @@ export default function SwapScreen() {
             </View>
           </View>
 
-          {/* Rate & fee */}
+          {/* Rate and network fee */}
           <View style={styles.summary}>
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Rate</Text>
+
               <Text style={styles.summaryValue}>
-                1 {fromToken.symbol} ≈ {ethRate.toLocaleString()} {toToken.symbol}
+                1 {fromToken.symbol} ≈{" "}
+                {fromPrice > 0 && toPrice > 0
+                  ? (fromPrice / toPrice).toLocaleString("en-US", {
+                      maximumFractionDigits: 6,
+                    })
+                  : "0"}{" "}
+                {toToken.symbol}
               </Text>
             </View>
+
             <View style={styles.summaryDivider} />
+
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Network fee</Text>
+              <Text style={styles.summaryLabel}>Estimated network fee</Text>
+
               <Text style={styles.summaryValue}>
-                ~${(0.85).toFixed(2)} · ₹{fmtInr(0.85 * usdtInrRate)}
+                ~${fmtUsd(0.85)} · ₹{fmtInr(0.85 * usdtInrRate)}
               </Text>
             </View>
+
+            <Text style={styles.disclaimer}>
+              Estimated values only. Final received amount depends on the configured swap contract
+              and actual execution.
+            </Text>
           </View>
         </View>
 
-        {/* Confirm */}
+        {/* Confirm button */}
         <View style={styles.footer}>
           <TouchableOpacity
-            style={[styles.confirmBtn, swapping && { opacity: 0.7 }]}
+            style={[styles.confirmBtn, swapping && styles.disabledButton]}
             onPress={handleConfirmSwap}
             disabled={swapping}
             activeOpacity={0.85}
@@ -392,8 +600,14 @@ export default function SwapScreen() {
 const PANEL_BG = Colors.surfaceAlt ?? "#F6F6F6";
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
-  safeContainer: { flex: 1, backgroundColor: Colors.backgroundLight },
+  flex: {
+    flex: 1,
+  },
+
+  safeContainer: {
+    flex: 1,
+    backgroundColor: Colors.backgroundLight,
+  },
 
   topHeader: {
     flexDirection: "row",
@@ -402,6 +616,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 10,
   },
+
   headerBtn: {
     width: 40,
     height: 40,
@@ -411,23 +626,33 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  title: { fontSize: 17, fontWeight: "700", color: Colors.textPrimary },
 
-  content: { flex: 1, paddingHorizontal: 20, paddingTop: 16 },
+  title: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: Colors.textPrimary,
+  },
 
-  /* Panels */
+  content: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+  },
+
   panel: {
     backgroundColor: PANEL_BG,
     padding: 18,
     borderWidth: 1,
     borderColor: Colors.border,
   },
+
   panelTop: {
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderBottomLeftRadius: 8,
     borderBottomRightRadius: 8,
   },
+
   panelBottom: {
     marginTop: 4,
     borderTopLeftRadius: 8,
@@ -435,19 +660,27 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
   },
+
   panelHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     height: 24,
   },
-  panelLabel: { fontSize: 13, fontWeight: "600", color: Colors.textSecondary },
+
+  panelLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: Colors.textSecondary,
+  },
+
   maxBtn: {
     backgroundColor: Colors.primary,
     paddingHorizontal: 9,
     paddingVertical: 4,
     borderRadius: 8,
   },
+
   maxText: {
     fontSize: 10.5,
     fontWeight: "800",
@@ -461,6 +694,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginTop: 10,
   },
+
   amountInput: {
     flex: 1,
     fontSize: 36,
@@ -470,6 +704,7 @@ const styles = StyleSheet.create({
     padding: 0,
     marginRight: 12,
   },
+
   amountResult: {
     flex: 1,
     fontSize: 36,
@@ -491,6 +726,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
   },
+
   tokenIcon: {
     width: 26,
     height: 26,
@@ -498,7 +734,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  tokenSymbol: { fontSize: 15, fontWeight: "700", color: Colors.textPrimary },
+
+  tokenSymbol: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: Colors.textPrimary,
+  },
 
   metaRow: {
     flexDirection: "row",
@@ -507,9 +748,13 @@ const styles = StyleSheet.create({
     marginTop: 10,
     gap: 10,
   },
-  metaText: { fontSize: 12, color: Colors.textSecondary, flexShrink: 1 },
 
-  /* Switch button */
+  metaText: {
+    fontSize: 12,
+    color: Colors.textSecondary,
+    flexShrink: 1,
+  },
+
   switchWrap: {
     position: "absolute",
     left: 0,
@@ -518,6 +763,7 @@ const styles = StyleSheet.create({
     marginTop: -20,
     alignItems: "center",
   },
+
   switchButton: {
     width: 40,
     height: 40,
@@ -529,23 +775,49 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 
-  /* Summary */
-  summary: { marginTop: 24, paddingHorizontal: 4 },
+  summary: {
+    marginTop: 24,
+    paddingHorizontal: 4,
+  },
+
   summaryRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingVertical: 12,
   },
+
   summaryDivider: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: Colors.border,
   },
-  summaryLabel: { fontSize: 13.5, color: Colors.textSecondary },
-  summaryValue: { fontSize: 13.5, fontWeight: "600", color: Colors.textPrimary },
 
-  /* Footer */
-  footer: { paddingHorizontal: 20, paddingBottom: 16, paddingTop: 8 },
+  summaryLabel: {
+    fontSize: 13.5,
+    color: Colors.textSecondary,
+  },
+
+  summaryValue: {
+    fontSize: 13.5,
+    fontWeight: "600",
+    color: Colors.textPrimary,
+    flexShrink: 1,
+    textAlign: "right",
+  },
+
+  disclaimer: {
+    marginTop: 8,
+    fontSize: 11,
+    lineHeight: 16,
+    color: Colors.textSecondary,
+  },
+
+  footer: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    paddingTop: 8,
+  },
+
   confirmBtn: {
     backgroundColor: Colors.primary,
     height: 56,
@@ -553,5 +825,85 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  confirmBtnText: { color: Colors.onPrimary, fontSize: 16, fontWeight: "700" },
+
+  disabledButton: {
+    opacity: 0.7,
+  },
+
+  confirmBtnText: {
+    color: Colors.onPrimary,
+    fontSize: 16,
+    fontWeight: "700",
+  },
+
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(15,23,42,0.45)",
+    justifyContent: "flex-end",
+  },
+
+  modalContent: {
+    backgroundColor: Colors.backgroundLight,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 18,
+    maxHeight: "85%",
+  },
+
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+
+  modalTitle: {
+    fontSize: 19,
+    fontWeight: "800",
+    color: Colors.textPrimary,
+  },
+
+  tokenOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.border,
+  },
+
+  optionIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+
+  optionInfo: {
+    flex: 1,
+  },
+
+  optionName: {
+    color: Colors.textPrimary,
+    fontWeight: "700",
+    fontSize: 15,
+  },
+
+  optionSymbol: {
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+
+  optionPrice: {
+    color: Colors.textSecondary,
+    fontSize: 12,
+  },
+
+  modalNote: {
+    color: Colors.textSecondary,
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: 12,
+  },
 });

@@ -25,7 +25,7 @@ export const NETWORKS = {
 
   localhost: {
     name: "Local Hardhat",
-    rpcUrl: "http://192.168.1.5:8545",
+    rpcUrl: "http://10.60.222.200:8545",
     symbol: "ETH",
     chainId: 31337,
   },
@@ -55,7 +55,7 @@ export const TOKENS_CONFIG: TokenConfig[] = [
     color: "#2775CA",
     type: "token",
     network: "localhost",
-    contractAddress: "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+    contractAddress: "0x5fbdb2315678afecb367f032d93f642f64180aa3",
 
     // Binance market
     marketSymbol: "USDCUSDT",
@@ -227,7 +227,9 @@ export async function getNativeBalance(
 
     return formattedBalance;
   } catch (error) {
-    console.warn(`Local RPC unavailable while fetching native balance for ${address}. Start Hardhat and make port 8545 reachable from the device/emulator.`);
+    console.warn(
+      `Local RPC unavailable while fetching native balance for ${address}. Start Hardhat and make port 8545 reachable from the device/emulator.`,
+    );
 
     return "0";
   }
@@ -258,7 +260,9 @@ export async function getTokenBalance(address: string, token: TokenConfig): Prom
 
     return formattedBalance;
   } catch (error) {
-    console.warn(`Local RPC unavailable while fetching ${token.symbol} balance. Start Hardhat and make port 8545 reachable from the device/emulator.`);
+    console.warn(
+      `Local RPC unavailable while fetching ${token.symbol} balance. Start Hardhat and make port 8545 reachable from the device/emulator.`,
+    );
 
     return "0";
   }
@@ -298,4 +302,54 @@ export async function sendNativeTransaction(
 
     throw error;
   }
+}
+
+export interface CandlePoint {
+  timestamp: number;
+  price: number;
+}
+
+export async function fetchBinanceChart(
+  symbol: string = "BTCUSDT",
+  interval: string = "15m",
+  limit: number = 96,
+): Promise<CandlePoint[]> {
+  const allowedIntervals = ["1m", "5m", "15m", "1h", "4h", "1d"];
+
+  if (!allowedIntervals.includes(interval)) {
+    throw new Error(`Unsupported chart interval: ${interval}`);
+  }
+
+  const safeLimit = Math.max(1, Math.min(limit, 500));
+  const pair = symbol.trim().toUpperCase();
+
+  const url =
+    `https://api.binance.com/api/v3/klines` +
+    `?symbol=${encodeURIComponent(pair)}` +
+    `&interval=${interval}&limit=${safeLimit}`;
+
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error(`Binance chart API error: ${response.status}`);
+  }
+
+  const data: unknown = await response.json();
+
+  if (!Array.isArray(data)) {
+    throw new Error("Invalid Binance chart response");
+  }
+
+  return data
+    .filter(
+      (candle: unknown) =>
+        Array.isArray(candle) &&
+        Number.isFinite(Number(candle[0])) &&
+        Number.isFinite(Number(candle[4])) &&
+        Number(candle[4]) > 0,
+    )
+    .map((candle: unknown[]) => ({
+      timestamp: Number(candle[0]),
+      price: Number(candle[4]),
+    }));
 }

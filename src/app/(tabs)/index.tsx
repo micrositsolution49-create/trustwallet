@@ -1,11 +1,15 @@
-import { fetchCryptoPrices, fetchUsdtInrRate } from "@/services/cryptoService";
+import AppDrawer from "@/components/AppDrawer";
+import AppHeader from "@/components/AppHeader";
 import LivePriceChart from "@/components/LivePriceChart";
+import { Colors } from "@/constants/Colors";
+import { fetchCryptoPrices, fetchUsdtInrRate } from "@/services/cryptoService";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   Image,
+  Modal,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -15,9 +19,6 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import AppHeader from "@/components/AppHeader";
-import AppDrawer from "@/components/AppDrawer";
-import { Colors } from "@/constants/Colors";
 
 interface CryptoCoin {
   id: string;
@@ -51,8 +52,7 @@ const INITIAL_COINS: CryptoCoin[] = [
     symbol: "bnb",
     current_price: 0,
     price_change_percentage_24h: 0,
-    image:
-      "https://assets.coingecko.com/coins/images/825/large/bnb-icon2_2x.png",
+    image: "https://assets.coingecko.com/coins/images/825/large/bnb-icon2_2x.png",
   },
   {
     id: "solana",
@@ -68,8 +68,7 @@ const INITIAL_COINS: CryptoCoin[] = [
     symbol: "xrp",
     current_price: 0,
     price_change_percentage_24h: 0,
-    image:
-      "https://assets.coingecko.com/coins/images/44/large/xrp-symbol-white-128.png",
+    image: "https://assets.coingecko.com/coins/images/44/large/xrp-symbol-white-128.png",
   },
   {
     id: "cardano",
@@ -110,8 +109,7 @@ const INITIAL_COINS: CryptoCoin[] = [
     symbol: "link",
     current_price: 0,
     price_change_percentage_24h: 0,
-    image:
-      "https://assets.coingecko.com/coins/images/877/large/chainlink-new-logo.png",
+    image: "https://assets.coingecko.com/coins/images/877/large/chainlink-new-logo.png",
   },
 ];
 
@@ -124,9 +122,7 @@ const DARK_LOGO_BG: Record<string, string> = {
 };
 
 export default function BrowserScreen() {
-  const [activeSegment, setActiveSegment] = useState<"Home" | "Discover">(
-    "Home",
-  );
+  const [activeSegment, setActiveSegment] = useState<"Home" | "Discover">("Home");
 
   const [coins, setCoins] = useState<CryptoCoin[]>(INITIAL_COINS);
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -173,10 +169,7 @@ export default function BrowserScreen() {
 
       setWatchlist(updatedWatchlist);
 
-      await AsyncStorage.setItem(
-        "@crypto_watchlist",
-        JSON.stringify(updatedWatchlist),
-      );
+      await AsyncStorage.setItem("@crypto_watchlist", JSON.stringify(updatedWatchlist));
     } catch (err) {
       console.log("Failed to save watchlist:", err);
     }
@@ -242,10 +235,7 @@ export default function BrowserScreen() {
 
     const fetchCryptoData = async () => {
       try {
-        const [prices, usdtInrRate] = await Promise.all([
-          fetchCryptoPrices(),
-          fetchUsdtInrRate(),
-        ]);
+        const [prices, usdtInrRate] = await Promise.all([fetchCryptoPrices(), fetchUsdtInrRate()]);
 
         if (!mounted) return;
 
@@ -261,15 +251,12 @@ export default function BrowserScreen() {
 
             const usdPrice = Number(marketData.usd || 0);
 
-            const displayPrice =
-              currency === "inr" ? usdPrice * usdtInrRate : usdPrice;
+            const displayPrice = currency === "inr" ? usdPrice * usdtInrRate : usdPrice;
 
             return {
               ...coin,
               current_price: displayPrice,
-              price_change_percentage_24h: Number(
-                marketData.usd_24h_change || 0,
-              ),
+              price_change_percentage_24h: Number(marketData.usd_24h_change || 0),
             };
           }),
         );
@@ -330,14 +317,10 @@ export default function BrowserScreen() {
           style={styles.tab}
           activeOpacity={0.7}
         >
-          <Text
-            style={[styles.tabText, activeSegment === "Home" && styles.tabTextActive]}
-          >
+          <Text style={[styles.tabText, activeSegment === "Home" && styles.tabTextActive]}>
             Market
           </Text>
-          <View
-            style={[styles.tabLine, activeSegment === "Home" && styles.tabLineActive]}
-          />
+          <View style={[styles.tabLine, activeSegment === "Home" && styles.tabLineActive]} />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -346,36 +329,20 @@ export default function BrowserScreen() {
           activeOpacity={0.7}
         >
           <View style={styles.tabLabelRow}>
-            <Text
-              style={[
-                styles.tabText,
-                activeSegment === "Discover" && styles.tabTextActive,
-              ]}
-            >
+            <Text style={[styles.tabText, activeSegment === "Discover" && styles.tabTextActive]}>
               Watchlist
             </Text>
             <View
-              style={[
-                styles.countBadge,
-                activeSegment === "Discover" && styles.countBadgeActive,
-              ]}
+              style={[styles.countBadge, activeSegment === "Discover" && styles.countBadgeActive]}
             >
               <Text
-                style={[
-                  styles.countText,
-                  activeSegment === "Discover" && styles.countTextActive,
-                ]}
+                style={[styles.countText, activeSegment === "Discover" && styles.countTextActive]}
               >
                 {watchlist.length}
               </Text>
             </View>
           </View>
-          <View
-            style={[
-              styles.tabLine,
-              activeSegment === "Discover" && styles.tabLineActive,
-            ]}
-          />
+          <View style={[styles.tabLine, activeSegment === "Discover" && styles.tabLineActive]} />
         </TouchableOpacity>
       </View>
 
@@ -420,9 +387,7 @@ export default function BrowserScreen() {
                   onPress={() => setCurrency(c)}
                   activeOpacity={0.8}
                 >
-                  <Text
-                    style={[styles.currencyText, active && styles.currencyTextActive]}
-                  >
+                  <Text style={[styles.currencyText, active && styles.currencyTextActive]}>
                     {c === "inr" ? "₹ INR" : "$ USD"}
                   </Text>
                 </TouchableOpacity>
@@ -475,14 +440,10 @@ export default function BrowserScreen() {
                     </View>
 
                     <View>
-                      <Text
-                        style={[styles.coinName, compactMode && styles.compactCoinName]}
-                      >
+                      <Text style={[styles.coinName, compactMode && styles.compactCoinName]}>
                         {coin.name}
                       </Text>
-                      <Text
-                        style={[styles.coinSymbol, compactMode && styles.compactCoinSymbol]}
-                      >
+                      <Text style={[styles.coinSymbol, compactMode && styles.compactCoinSymbol]}>
                         {coin.symbol.toUpperCase()}
                       </Text>
                     </View>
@@ -496,9 +457,7 @@ export default function BrowserScreen() {
                     ]}
                   >
                     <View style={styles.coinRight}>
-                      <Text
-                        style={[styles.coinPrice, compactMode && styles.compactCoinPrice]}
-                      >
+                      <Text style={[styles.coinPrice, compactMode && styles.compactCoinPrice]}>
                         {coin.current_price > 0
                           ? `${currency === "inr" ? "₹" : "$"}${coin.current_price.toLocaleString(
                               currency === "inr" ? "en-IN" : "en-US",
@@ -573,6 +532,70 @@ export default function BrowserScreen() {
           )}
         </View>
       </ScrollView>
+
+      <Modal
+        visible={!!selectedCoin}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setSelectedCoin(null)}
+      >
+        <View
+          style={{ flex: 1, backgroundColor: "rgba(15,23,42,0.45)", justifyContent: "flex-end" }}
+        >
+          <View
+            style={{
+              backgroundColor: Colors.backgroundLight,
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              padding: 18,
+              maxHeight: "96%",
+            }}
+          >
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 16,
+              }}
+            >
+              <View>
+                <Text style={{ color: Colors.textPrimary, fontSize: 20, fontWeight: "800" }}>
+                  {selectedCoin?.name ?? ""}
+                </Text>
+                <Text style={{ color: Colors.textSecondary, marginTop: 3 }}>
+                  {selectedCoin?.symbol.toUpperCase() ?? ""} · Live market
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setSelectedCoin(null)} style={{ padding: 8 }}>
+                <Ionicons name="close-circle" size={28} color={Colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            {selectedCoin ? (
+              <LivePriceChart
+                key={selectedCoin.id}
+                symbol={`${selectedCoin.symbol.toUpperCase()}USDT`}
+                title={selectedCoin.name}
+              />
+            ) : null}
+            <TouchableOpacity
+              onPress={() => {
+                setSelectedCoin(null);
+                router.push("/(tabs)/swap");
+              }}
+              style={{
+                marginTop: 14,
+                backgroundColor: Colors.primary,
+                padding: 14,
+                borderRadius: 14,
+                alignItems: "center",
+              }}
+            >
+              <Text style={{ color: Colors.onPrimary, fontWeight: "800" }}>Open Swap</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       <AppDrawer
         visible={menuVisible}

@@ -1,4 +1,5 @@
 import { fetchCryptoPrices, fetchUsdtInrRate } from "@/services/cryptoService";
+import LivePriceChart from "@/components/LivePriceChart";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -139,6 +140,8 @@ export default function BrowserScreen() {
 
   // Watchlist state
   const [watchlist, setWatchlist] = useState<string[]>([]);
+  const [selectedCoin, setSelectedCoin] = useState<CryptoCoin | null>(null);
+  const [usdtInrRate, setUsdtInrRate] = useState(96);
 
   // Load watchlist on app start
   useEffect(() => {
@@ -245,6 +248,8 @@ export default function BrowserScreen() {
         ]);
 
         if (!mounted) return;
+
+        setUsdtInrRate(usdtInrRate);
 
         setCoins((prevCoins) =>
           prevCoins.map((coin) => {
@@ -436,8 +441,10 @@ export default function BrowserScreen() {
               const logoBg = DARK_LOGO_BG[coin.id] ?? PANEL_BG;
 
               return (
-                <View
+                <TouchableOpacity
                   key={coin.id}
+                  activeOpacity={0.85}
+                  onPress={() => setSelectedCoin(coin)}
                   style={[
                     styles.cryptoRow,
                     compactMode && styles.compactCryptoRow,
@@ -545,7 +552,7 @@ export default function BrowserScreen() {
                       />
                     </TouchableOpacity>
                   </View>
-                </View>
+                </TouchableOpacity>
               );
             })
           ) : (

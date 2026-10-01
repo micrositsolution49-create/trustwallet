@@ -55,7 +55,7 @@ export const TOKENS_CONFIG: TokenConfig[] = [
     color: "#2775CA",
     type: "token",
     network: "localhost",
-    contractAddress: "0x5fbdb2315678afecb367f032d93f642f64180aa3",
+    contractAddress: "0x5FbDB2315678afecb367f032d93F642f64180aa3",
 
     // Binance market
     marketSymbol: "USDCUSDT",
@@ -227,7 +227,7 @@ export async function getNativeBalance(
 
     return formattedBalance;
   } catch (error) {
-    console.error(`Failed to fetch native balance for ${address}:`, error);
+    console.warn(`Local RPC unavailable while fetching native balance for ${address}. Start Hardhat and make port 8545 reachable from the device/emulator.`);
 
     return "0";
   }
@@ -258,7 +258,7 @@ export async function getTokenBalance(address: string, token: TokenConfig): Prom
 
     return formattedBalance;
   } catch (error) {
-    console.error(`Failed to fetch ${token.symbol} balance:`, error);
+    console.warn(`Local RPC unavailable while fetching ${token.symbol} balance. Start Hardhat and make port 8545 reachable from the device/emulator.`);
 
     return "0";
   }

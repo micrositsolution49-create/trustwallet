@@ -1,30 +1,37 @@
 export const Colors = {
-  // ---- Brand / accent (black only) ----
+  // ---- Brand / accent ----
   primary: "#000000",            // Black buttons, active icons
-  onPrimary: "#FFFFFF",          // NEW: text/icon on black buttons
-  brandBlue: "#111111",          // Was blue -> now near-black
+  onPrimary: "#FFFFFF",          // Text/icon on black buttons
+  secondary: "#00A896",          // Teal accent (secondary buttons, links, highlights)
+  onSecondary: "#FFFFFF",        // Text/icon on teal buttons
+  brandBlue: "#111111",          // Near-black (rename to brandDark if you want)
   deepBlueDark: "#000000",       // Pure black (text/borders)
-  accentCyan: "#F2F2F2",         // Light gray highlight (chips, subtle fills)
+  accentCyan: "#E6F7F5",         // Light teal tint (chips, subtle fills)
+  accentStrong: "#007F73",       // Darker teal (pressed state / hover)
 
-  // ---- Cards (white, no gradient darkness) ----
+  // ---- Cards ----
   cardGradientStart: "#FFFFFF",
   cardGradientEnd: "#F5F5F5",
 
-  // ---- Status (kept, no blue/purple) ----
-  positiveGreen: "#00C853",
+  // ---- Status ----
+  positiveGreen: "#22C55E",      // Teal se alag dikhe isliye thoda yellowish green
   negativeRed: "#FF3B30",
+  warning: "#FFB300",
 
-  // ---- Backgrounds: WHITE ----
+  // ---- Backgrounds ----
   backgroundLight: "#FFFFFF",
-  backgroundDark: "#FFFFFF",     // App main background is now white
-  surfaceCard: "#FFFFFF",        // Cards are white, separated by border
+  backgroundDark: "#FFFFFF",
+  surfaceCard: "#FFFFFF",
+  surfaceAlt: "#FAFAFA",
 
-  // ---- Text: BLACK ----
+  // ---- Text ----
   textPrimary: "#000000",
   textSecondary: "#6B6B6B",
+  textAccent: "#007F73",         // Teal text on white (readable contrast)
 
   // ---- Borders ----
-  border: "#E0E0E0",             // Light gray border for cards/inputs
-  borderStrong: "#000000",       // NEW: black outline when you want emphasis
-  disabled: "#CCCCCC",           // NEW
+  border: "#E0E0E0",
+  borderStrong: "#000000",
+  borderAccent: "#00A896",       // Focused input / selected card
+  disabled: "#CCCCCC",
 };

@@ -4,9 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-  Alert,
   Image,
-  Modal,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -16,6 +14,9 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import AppHeader from "@/components/AppHeader";
+import AppDrawer from "@/components/AppDrawer";
+import { Colors } from "@/constants/Colors";
 
 interface CryptoCoin {
   id: string;
@@ -112,6 +113,14 @@ const INITIAL_COINS: CryptoCoin[] = [
       "https://assets.coingecko.com/coins/images/877/large/chainlink-new-logo.png",
   },
 ];
+
+const PANEL_BG = Colors.surfaceAlt ?? "#F6F6F6";
+const STAR_ON = "#F59E0B";
+
+// Some logos are white-on-transparent and vanish on a light circle.
+const DARK_LOGO_BG: Record<string, string> = {
+  ripple: "#23292F",
+};
 
 export default function BrowserScreen() {
   const [activeSegment, setActiveSegment] = useState<"Home" | "Discover">(
@@ -230,7 +239,10 @@ export default function BrowserScreen() {
 
     const fetchCryptoData = async () => {
       try {
-        const [prices, usdtInrRate] = await Promise.all([fetchCryptoPrices(), fetchUsdtInrRate()]);
+        const [prices, usdtInrRate] = await Promise.all([
+          fetchCryptoPrices(),
+          fetchUsdtInrRate(),
+        ]);
 
         if (!mounted) return;
 
@@ -244,12 +256,15 @@ export default function BrowserScreen() {
 
             const usdPrice = Number(marketData.usd || 0);
 
-            const displayPrice = currency === "inr" ? usdPrice * usdtInrRate : usdPrice;
+            const displayPrice =
+              currency === "inr" ? usdPrice * usdtInrRate : usdPrice;
 
             return {
               ...coin,
               current_price: displayPrice,
-              price_change_percentage_24h: Number(marketData.usd_24h_change || 0),
+              price_change_percentage_24h: Number(
+                marketData.usd_24h_change || 0,
+              ),
             };
           }),
         );
@@ -283,130 +298,142 @@ export default function BrowserScreen() {
 
   return (
     <SafeAreaView style={styles.safeContainer}>
-      <StatusBar barStyle="dark-content" />
+      <StatusBar barStyle="dark-content" backgroundColor={Colors.backgroundLight} />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.iconBtn}
-          onPress={() => setMenuVisible(true)}
-          accessibilityLabel="Open navigation menu"
-        >
-          <Ionicons name="menu-outline" size={24} color="#0F172A" />
-        </TouchableOpacity>
+      <AppHeader
+        title="Crypto Markets"
+        leftComponent={
+          <TouchableOpacity
+            style={styles.iconBtn}
+            onPress={() => setMenuVisible(true)}
+            accessibilityLabel="Open navigation menu"
+          >
+            <Ionicons name="menu-outline" size={24} color={Colors.textPrimary} />
+          </TouchableOpacity>
+        }
+        rightComponent={
+          <TouchableOpacity style={styles.iconBtn}>
+            <Ionicons name="pulse" size={20} color={Colors.positiveGreen} />
+          </TouchableOpacity>
+        }
+      />
 
-        <Text style={styles.headerTitle}>Crypto Markets</Text>
-
-        <TouchableOpacity style={styles.iconBtn}>
-          <Ionicons name="pulse" size={20} color="#00D18F" />
-        </TouchableOpacity>
-      </View>
-
-      {/* Market / Watchlist Tabs */}
-      <View style={styles.segmentWrapper}>
+      {/* Market / Watchlist tabs */}
+      <View style={styles.tabsRow}>
         <TouchableOpacity
           onPress={() => setActiveSegment("Home")}
-          style={[
-            styles.segmentBtn,
-            activeSegment === "Home" && styles.segmentBtnActive,
-          ]}
+          style={styles.tab}
+          activeOpacity={0.7}
         >
           <Text
-            style={[
-              styles.segmentText,
-              activeSegment === "Home" && styles.segmentTextActive,
-            ]}
+            style={[styles.tabText, activeSegment === "Home" && styles.tabTextActive]}
           >
             Market
           </Text>
+          <View
+            style={[styles.tabLine, activeSegment === "Home" && styles.tabLineActive]}
+          />
         </TouchableOpacity>
 
         <TouchableOpacity
           onPress={() => setActiveSegment("Discover")}
-          style={[
-            styles.segmentBtn,
-            activeSegment === "Discover" && styles.segmentBtnActive,
-          ]}
+          style={styles.tab}
+          activeOpacity={0.7}
         >
-          <Text
+          <View style={styles.tabLabelRow}>
+            <Text
+              style={[
+                styles.tabText,
+                activeSegment === "Discover" && styles.tabTextActive,
+              ]}
+            >
+              Watchlist
+            </Text>
+            <View
+              style={[
+                styles.countBadge,
+                activeSegment === "Discover" && styles.countBadgeActive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.countText,
+                  activeSegment === "Discover" && styles.countTextActive,
+                ]}
+              >
+                {watchlist.length}
+              </Text>
+            </View>
+          </View>
+          <View
             style={[
-              styles.segmentText,
-              activeSegment === "Discover" && styles.segmentTextActive,
+              styles.tabLine,
+              activeSegment === "Discover" && styles.tabLineActive,
             ]}
-          >
-            Watchlist ({watchlist.length})
-          </Text>
+          />
         </TouchableOpacity>
       </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
       >
         {/* Search */}
         <View style={styles.searchBar}>
-          <Ionicons name="search-outline" size={18} color="#94A3B8" />
+          <Ionicons name="search-outline" size={18} color={Colors.textSecondary} />
 
           <TextInput
-            placeholder="Search coin (e.g. Bitcoin, ETH)..."
-            placeholderTextColor="#94A3B8"
+            placeholder="Search Bitcoin, ETH..."
+            placeholderTextColor={Colors.textSecondary}
             style={styles.searchInput}
             value={searchQuery}
             onChangeText={setSearchQuery}
             autoCapitalize="none"
           />
+
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery("")} hitSlop={8}>
+              <Ionicons name="close-circle" size={18} color={Colors.disabled} />
+            </TouchableOpacity>
+          )}
         </View>
 
-        {/* Section Header */}
+        {/* Section header */}
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionHeading}>
-            {activeSegment === "Home" ? "Live Markets" : "Your Watchlist"}
+            {activeSegment === "Home" ? "Live markets" : "Your watchlist"}
           </Text>
 
           <View style={styles.currencyToggleContainer}>
-            <TouchableOpacity
-              style={[
-                styles.currencyBtn,
-                currency === "inr" && styles.currencyBtnActive,
-              ]}
-              onPress={() => setCurrency("inr")}
-            >
-              <Text
-                style={[
-                  styles.currencyText,
-                  currency === "inr" && styles.currencyTextActive,
-                ]}
-              >
-                ₹ INR
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.currencyBtn,
-                currency === "usd" && styles.currencyBtnActive,
-              ]}
-              onPress={() => setCurrency("usd")}
-            >
-              <Text
-                style={[
-                  styles.currencyText,
-                  currency === "usd" && styles.currencyTextActive,
-                ]}
-              >
-                $ USD
-              </Text>
-            </TouchableOpacity>
+            {(["inr", "usd"] as const).map((c) => {
+              const active = currency === c;
+              return (
+                <TouchableOpacity
+                  key={c}
+                  style={[styles.currencyBtn, active && styles.currencyBtnActive]}
+                  onPress={() => setCurrency(c)}
+                  activeOpacity={0.8}
+                >
+                  <Text
+                    style={[styles.currencyText, active && styles.currencyTextActive]}
+                  >
+                    {c === "inr" ? "₹ INR" : "$ USD"}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
 
-        {/* Crypto List */}
-        <View style={styles.listContainer}>
+        {/* Crypto list */}
+        <View>
           {displayedCoins.length > 0 ? (
-            displayedCoins.map((coin) => {
+            displayedCoins.map((coin, index) => {
               const isProfit = coin.price_change_percentage_24h >= 0;
-
               const isWatchlisted = watchlist.includes(coin.id);
+              const isLast = index === displayedCoins.length - 1;
+              const logoBg = DARK_LOGO_BG[coin.id] ?? PANEL_BG;
 
               return (
                 <View
@@ -414,60 +441,47 @@ export default function BrowserScreen() {
                   style={[
                     styles.cryptoRow,
                     compactMode && styles.compactCryptoRow,
+                    !isLast && styles.rowDivider,
                   ]}
                 >
-                  {/* Left Side */}
-                  <View
-                    style={[
-                      styles.coinLeft,
-                      compactMode && styles.compactCoinLeft,
-                    ]}
-                  >
+                  {/* Left */}
+                  <View style={[styles.coinLeft, compactMode && styles.compactCoinLeft]}>
                     <View
                       style={[
-                        styles.iconPlaceholder,
-                        compactMode && styles.compactIconPlaceholder,
+                        styles.logoWrap,
+                        compactMode && styles.compactLogoWrap,
+                        { backgroundColor: logoBg },
                       ]}
                     >
                       {coin.image ? (
                         <Image
                           source={{ uri: coin.image }}
-                          style={[
-                            styles.coinImage,
-                            compactMode && styles.compactCoinImage,
-                          ]}
+                          style={[styles.coinImage, compactMode && styles.compactCoinImage]}
                         />
                       ) : (
                         <MaterialCommunityIcons
                           name="currency-usd"
                           size={20}
-                          color="#0284C7"
+                          color={Colors.textPrimary}
                         />
                       )}
                     </View>
 
                     <View>
                       <Text
-                        style={[
-                          styles.coinName,
-                          compactMode && styles.compactCoinName,
-                        ]}
+                        style={[styles.coinName, compactMode && styles.compactCoinName]}
                       >
                         {coin.name}
                       </Text>
-
                       <Text
-                        style={[
-                          styles.coinSymbol,
-                          compactMode && styles.compactCoinSymbol,
-                        ]}
+                        style={[styles.coinSymbol, compactMode && styles.compactCoinSymbol]}
                       >
                         {coin.symbol.toUpperCase()}
                       </Text>
                     </View>
                   </View>
 
-                  {/* Right Side */}
+                  {/* Right */}
                   <View
                     style={[
                       styles.coinRightContainer,
@@ -476,34 +490,45 @@ export default function BrowserScreen() {
                   >
                     <View style={styles.coinRight}>
                       <Text
-                        style={[
-                          styles.coinPrice,
-                          compactMode && styles.compactCoinPrice,
-                        ]}
+                        style={[styles.coinPrice, compactMode && styles.compactCoinPrice]}
                       >
                         {coin.current_price > 0
                           ? `${currency === "inr" ? "₹" : "$"}${coin.current_price.toLocaleString(
                               currency === "inr" ? "en-IN" : "en-US",
-                              {
-                                minimumFractionDigits: 2,
-                              },
+                              { minimumFractionDigits: 2 },
                             )}`
                           : "Loading..."}
                       </Text>
 
                       {coin.current_price > 0 && (
-                        <Text
+                        <View
                           style={[
-                            styles.coinPercentage,
-                            compactMode && styles.compactCoinPercentage,
+                            styles.changePill,
+                            compactMode && styles.compactChangePill,
                             {
-                              color: isProfit ? "#00C853" : "#FF3B30",
+                              backgroundColor: isProfit
+                                ? Colors.positiveGreen + "1A"
+                                : Colors.negativeRed + "1A",
                             },
                           ]}
                         >
-                          {isProfit ? "+" : ""}
-                          {coin.price_change_percentage_24h.toFixed(2)}%
-                        </Text>
+                          <Ionicons
+                            name={isProfit ? "caret-up" : "caret-down"}
+                            size={compactMode ? 8 : 10}
+                            color={isProfit ? Colors.positiveGreen : Colors.negativeRed}
+                          />
+                          <Text
+                            style={[
+                              styles.coinPercentage,
+                              compactMode && styles.compactCoinPercentage,
+                              {
+                                color: isProfit ? Colors.positiveGreen : Colors.negativeRed,
+                              },
+                            ]}
+                          >
+                            {Math.abs(coin.price_change_percentage_24h).toFixed(2)}%
+                          </Text>
+                        </View>
                       )}
                     </View>
 
@@ -511,11 +536,12 @@ export default function BrowserScreen() {
                     <TouchableOpacity
                       onPress={() => toggleWatchlist(coin.id)}
                       style={styles.starBtn}
+                      hitSlop={6}
                     >
                       <Ionicons
                         name={isWatchlisted ? "star" : "star-outline"}
-                        size={22}
-                        color={isWatchlisted ? "#F59E0B" : "#94A3B8"}
+                        size={21}
+                        color={isWatchlisted ? STAR_ON : Colors.disabled}
                       />
                     </TouchableOpacity>
                   </View>
@@ -524,6 +550,13 @@ export default function BrowserScreen() {
             })
           ) : (
             <View style={styles.emptyContainer}>
+              <View style={styles.emptyIcon}>
+                <Ionicons
+                  name={activeSegment === "Discover" ? "star-outline" : "search-outline"}
+                  size={24}
+                  color={Colors.textPrimary}
+                />
+              </View>
               <Text style={styles.emptyText}>
                 {activeSegment === "Discover"
                   ? "No coins in your watchlist yet! Tap the star icon on any coin to add it."
@@ -534,553 +567,195 @@ export default function BrowserScreen() {
         </View>
       </ScrollView>
 
-      {/* Hamburger Drawer */}
-      <Modal
+      <AppDrawer
         visible={menuVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setMenuVisible(false)}
-      >
-        <View style={styles.drawerOverlay}>
-          <TouchableOpacity
-            activeOpacity={1}
-            onPress={() => setMenuVisible(false)}
-          />
-
-          <View style={styles.drawer}>
-            <View style={styles.drawerHeader}>
-              <View style={styles.brandMark}>
-                <Ionicons
-                  name="logo-bitcoin"
-                  size={22}
-                  color="#FFFFFF"
-                  style={{
-                    transform: [{ rotate: "10deg" }],
-                  }}
-                />
-              </View>
-
-              <View style={{ flex: 1 }}>
-                <Text style={styles.drawerBrand}>Crypto Wallet</Text>
-
-                <Text style={styles.drawerSubtitle}>Markets & wallet</Text>
-              </View>
-
-              <TouchableOpacity onPress={() => setMenuVisible(false)}>
-                <Ionicons name="close" size={22} color="#64748B" />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.drawerDivider} />
-
-            <Text style={styles.drawerSectionTitle}>NAVIGATION</Text>
-
-            <DrawerItem
-              icon="trending-up-outline"
-              label="Markets"
-              active
-              onPress={() => setMenuVisible(false)}
-            />
-
-            <DrawerItem
-              icon="wallet-outline"
-              label="Wallet"
-              onPress={() => {
-                setMenuVisible(false);
-                router.push("/wallet");
-              }}
-            />
-
-            <DrawerItem
-              icon="swap-horizontal-outline"
-              label="Swap / Exchange"
-              onPress={() => {
-                setMenuVisible(false);
-                router.push("/swap");
-              }}
-            />
-
-            <DrawerItem
-              icon="settings-outline"
-              label="Settings"
-              onPress={() => {
-                setMenuVisible(false);
-                router.push("/settings");
-              }}
-            />
-
-            <View style={styles.drawerDivider} />
-
-            <Text style={styles.drawerSectionTitle}>WALLET</Text>
-
-            <DrawerItem
-              icon="lock-closed-outline"
-              label="Lock Wallet"
-              danger
-              onPress={() => {
-                setMenuVisible(false);
-
-                Alert.alert(
-                  "Lock wallet?",
-                  "You will need to unlock your wallet again to access it.",
-                  [
-                    {
-                      text: "Cancel",
-                      style: "cancel",
-                    },
-                    {
-                      text: "Lock",
-                      style: "destructive",
-                      onPress: () => router.replace("/(auth)/unlock"),
-                    },
-                  ],
-                );
-              }}
-            />
-
-            <View style={styles.drawerBottom}>
-              <Ionicons
-                name="shield-checkmark-outline"
-                size={17}
-                color="#00A878"
-              />
-
-              <Text style={styles.drawerSafeText}>
-                Your wallet stays on your device
-              </Text>
-            </View>
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setMenuVisible(false)}
+        currentRoute="markets"
+      />
     </SafeAreaView>
-  );
-}
-
-function DrawerItem({
-  icon,
-  label,
-  onPress,
-  active = false,
-  danger = false,
-}: {
-  icon: any;
-  label: string;
-  onPress: () => void;
-  active?: boolean;
-  danger?: boolean;
-}) {
-  return (
-    <TouchableOpacity
-      style={[styles.drawerItem, active && styles.drawerItemActive]}
-      onPress={onPress}
-      activeOpacity={0.75}
-    >
-      <View style={[styles.drawerIcon, active && styles.drawerIconActive]}>
-        <Ionicons
-          name={icon}
-          size={19}
-          color={danger ? "#E5484D" : active ? "#0560FA" : "#64748B"}
-        />
-      </View>
-
-      <Text
-        style={[
-          styles.drawerItemText,
-          active && styles.drawerItemTextActive,
-          danger && styles.drawerItemTextDanger,
-        ]}
-      >
-        {label}
-      </Text>
-
-      {!danger && <Ionicons name="chevron-forward" size={16} color="#CBD5E1" />}
-    </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
   safeContainer: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: Colors.backgroundLight,
   },
+  iconBtn: { padding: 4 },
 
-  header: {
+  /* Tabs */
+  tabsRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    marginHorizontal: 20,
+    marginTop: 6,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.border,
+    gap: 24,
   },
-
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: "#0F172A",
-  },
-
-  iconBtn: {
-    padding: 4,
-  },
-
-  segmentWrapper: {
-    flexDirection: "row",
-    backgroundColor: "#F1F5F9",
-    borderRadius: 14,
-    marginHorizontal: 16,
-    marginVertical: 10,
-    padding: 3,
-  },
-
-  segmentBtn: {
-    flex: 1,
-    paddingVertical: 8,
-    alignItems: "center",
-    borderRadius: 12,
-  },
-
-  segmentBtnActive: {
-    backgroundColor: "#FFFFFF",
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-
-  segmentText: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: "#64748B",
-  },
-
-  segmentTextActive: {
-    color: "#0F172A",
+  tab: { paddingTop: 8 },
+  tabLabelRow: { flexDirection: "row", alignItems: "center", gap: 7 },
+  tabText: {
+    fontSize: 15,
     fontWeight: "600",
+    color: Colors.textSecondary,
+    paddingBottom: 10,
   },
+  tabTextActive: { color: Colors.textPrimary, fontWeight: "800" },
+  tabLine: { height: 2.5, borderRadius: 2, backgroundColor: "transparent" },
+  tabLineActive: { backgroundColor: Colors.primary },
+  countBadge: {
+    minWidth: 20,
+    height: 20,
+    paddingHorizontal: 6,
+    borderRadius: 10,
+    backgroundColor: PANEL_BG,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10,
+  },
+  countBadgeActive: { backgroundColor: Colors.primary },
+  countText: { fontSize: 11, fontWeight: "700", color: Colors.textSecondary },
+  countTextActive: { color: Colors.onPrimary },
 
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 30,
+    paddingHorizontal: 20,
+    paddingBottom: 40,
   },
 
+  /* Search */
   searchBar: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F8FAFC",
+    backgroundColor: PANEL_BG,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    height: 44,
-    marginTop: 6,
-    marginBottom: 10,
+    borderColor: Colors.border,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    height: 48,
+    marginTop: 16,
   },
-
   searchInput: {
     flex: 1,
-    marginLeft: 8,
-    fontSize: 14,
-    color: "#0F172A",
+    marginLeft: 10,
+    fontSize: 14.5,
+    color: Colors.textPrimary,
+    padding: 0,
   },
 
+  /* Section header */
   sectionHeaderRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 14,
-    marginBottom: 10,
+    marginTop: 24,
+    marginBottom: 4,
   },
-
   sectionHeading: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#0F172A",
+    fontSize: 20,
+    fontWeight: "800",
+    letterSpacing: -0.5,
+    color: Colors.textPrimary,
   },
-
   currencyToggleContainer: {
     flexDirection: "row",
-    backgroundColor: "#F1F5F9",
-    borderRadius: 8,
-    padding: 2,
+    backgroundColor: PANEL_BG,
+    borderRadius: 10,
+    padding: 3,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
-
   currencyBtn: {
     paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
+    paddingVertical: 5,
+    borderRadius: 8,
   },
-
-  currencyBtnActive: {
-    backgroundColor: "#FFFFFF",
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-
+  currencyBtnActive: { backgroundColor: Colors.primary },
   currencyText: {
     fontSize: 12,
-    fontWeight: "500",
-    color: "#64748B",
-  },
-
-  currencyTextActive: {
-    color: "#0F172A",
     fontWeight: "700",
+    color: Colors.textSecondary,
   },
+  currencyTextActive: { color: Colors.onPrimary },
 
-  listContainer: {
-    gap: 8,
-  },
-
-  /* NORMAL MODE */
+  /* Rows */
   cryptoRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "#F8FAFC",
-    padding: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "#F1F5F9",
+    paddingVertical: 14,
+  },
+  compactCryptoRow: { paddingVertical: 8 },
+  rowDivider: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: Colors.border,
   },
 
-  /* COMPACT MODE */
-  compactCryptoRow: {
-    paddingVertical: 7,
-    paddingHorizontal: 10,
-    borderRadius: 10,
-  },
+  coinLeft: { flexDirection: "row", alignItems: "center", gap: 13 },
+  compactCoinLeft: { gap: 9 },
 
-  coinLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-
-  compactCoinLeft: {
-    gap: 8,
-  },
-
-  iconPlaceholder: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: "#E0F2FE",
+  logoWrap: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     justifyContent: "center",
     alignItems: "center",
     overflow: "hidden",
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
+  compactLogoWrap: { width: 32, height: 32, borderRadius: 16 },
+  coinImage: { width: 30, height: 30, resizeMode: "contain" },
+  compactCoinImage: { width: 22, height: 22 },
 
-  compactIconPlaceholder: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-  },
-
-  coinImage: {
-    width: 26,
-    height: 26,
-    resizeMode: "contain",
-  },
-
-  compactCoinImage: {
-    width: 21,
-    height: 21,
-  },
-
-  coinName: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#0F172A",
-  },
-
-  compactCoinName: {
-    fontSize: 12.5,
-  },
-
+  coinName: { fontSize: 16, fontWeight: "700", color: Colors.textPrimary },
+  compactCoinName: { fontSize: 13.5 },
   coinSymbol: {
-    fontSize: 12,
-    color: "#64748B",
+    fontSize: 12.5,
+    fontWeight: "500",
+    color: Colors.textSecondary,
+    marginTop: 2,
     textTransform: "uppercase",
   },
+  compactCoinSymbol: { fontSize: 10.5, marginTop: 1 },
 
-  compactCoinSymbol: {
-    fontSize: 10,
-  },
+  coinRightContainer: { flexDirection: "row", alignItems: "center", gap: 10 },
+  compactCoinRightContainer: { gap: 6 },
+  coinRight: { alignItems: "flex-end" },
+  coinPrice: { fontSize: 15.5, fontWeight: "700", color: Colors.textPrimary },
+  compactCoinPrice: { fontSize: 13 },
 
-  coinRightContainer: {
+  changePill: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 2,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 8,
+    marginTop: 5,
   },
+  compactChangePill: { paddingHorizontal: 5, paddingVertical: 1, marginTop: 3 },
+  coinPercentage: { fontSize: 12, fontWeight: "700" },
+  compactCoinPercentage: { fontSize: 10.5 },
 
-  compactCoinRightContainer: {
-    gap: 6,
-  },
+  starBtn: { padding: 4 },
 
-  coinRight: {
-    alignItems: "flex-end",
-  },
-
-  coinPrice: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#0F172A",
-  },
-
-  compactCoinPrice: {
-    fontSize: 12,
-  },
-
-  coinPercentage: {
-    fontSize: 12,
-    fontWeight: "600",
-    marginTop: 2,
-  },
-
-  compactCoinPercentage: {
-    fontSize: 10,
-    marginTop: 1,
-  },
-
-  starBtn: {
-    padding: 4,
-  },
-
-  emptyContainer: {
-    padding: 30,
+  /* Empty */
+  emptyContainer: { paddingVertical: 48, paddingHorizontal: 30, alignItems: "center" },
+  emptyIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: PANEL_BG,
+    borderWidth: 1,
+    borderColor: Colors.border,
     alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
   },
-
   emptyText: {
-    fontSize: 13,
-    color: "#94A3B8",
+    fontSize: 13.5,
+    lineHeight: 19,
+    color: Colors.textSecondary,
     textAlign: "center",
-  },
-
-  /* DRAWER */
-
-  drawerOverlay: {
-    flex: 1,
-    flexDirection: "row",
-    backgroundColor: "rgba(15, 23, 42, 0.32)",
-  },
-
-  drawer: {
-    width: "80%",
-    backgroundColor: "#FFFFFF",
-    paddingTop: 58,
-    paddingHorizontal: 16,
-    shadowColor: "#000",
-    shadowOpacity: 0.15,
-    shadowRadius: 18,
-    elevation: 16,
-  },
-
-  drawerHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 11,
-    paddingHorizontal: 4,
-    marginBottom: 18,
-  },
-
-  brandMark: {
-    width: 42,
-    height: 42,
-    borderRadius: 50,
-    backgroundColor: "#f7931a",
-    alignItems: "center",
-    justifyContent: "center",
-    borderColor: "#0560FA",
-    borderWidth: 2,
-  },
-
-  drawerBrand: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#0F172A",
-  },
-
-  drawerSubtitle: {
-    fontSize: 12,
-    color: "#94A3B8",
-    marginTop: 2,
-  },
-
-  drawerDivider: {
-    height: 1,
-    backgroundColor: "#EEF2F6",
-    marginVertical: 14,
-  },
-
-  drawerSectionTitle: {
-    fontSize: 10,
-    fontWeight: "800",
-    letterSpacing: 1,
-    color: "#94A3B8",
-    marginBottom: 7,
-    marginLeft: 5,
-  },
-
-  drawerItem: {
-    minHeight: 48,
-    flexDirection: "row",
-    alignItems: "center",
-    borderRadius: 13,
-    paddingHorizontal: 9,
-    marginBottom: 4,
-  },
-
-  drawerItemActive: {
-    backgroundColor: "#EFF6FF",
-  },
-
-  drawerIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    backgroundColor: "#F8FAFC",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 11,
-  },
-
-  drawerIconActive: {
-    backgroundColor: "#DBEAFE",
-  },
-
-  drawerItemText: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#334155",
-  },
-
-  drawerItemTextActive: {
-    color: "#0560FA",
-    fontWeight: "700",
-  },
-
-  drawerItemTextDanger: {
-    color: "#E5484D",
-  },
-
-  drawerBottom: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 7,
-    backgroundColor: "#F0FDF9",
-    borderRadius: 12,
-    padding: 11,
-    marginTop: "auto",
-    marginBottom: 28,
-  },
-
-  drawerSafeText: {
-    flex: 1,
-    fontSize: 11,
-    color: "#087F5B",
-    fontWeight: "600",
   },
 });

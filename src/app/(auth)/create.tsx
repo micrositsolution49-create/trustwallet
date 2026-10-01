@@ -10,6 +10,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Colors } from "@/constants/Colors";
@@ -20,6 +21,9 @@ export default function CreateWalletScreen() {
   const [revealed, setRevealed] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Checkbox state for user confirmation before going to verify screen
+  const [isChecked, setIsChecked] = useState(false);
 
   useEffect(() => {
     const generate = async () => {
@@ -37,6 +41,19 @@ export default function CreateWalletScreen() {
     };
     generate();
   }, []);
+
+  const handleProceedToVerify = () => {
+    if (!mnemonic) {
+      Alert.alert("Error", "Mnemonic not generated yet.");
+      return;
+    }
+
+    // Yahan hum direct confirm phrase screen par bhej rahe hain aur mnemonic pass kar rahe hain
+    router.push({
+      pathname: "/(auth)/confirm" as any, // Apne route ke hisab se path adjust kar lena (e.g. /confirm ya /(auth)/confirm)
+      params: { mnemonic },
+    });
+  };
 
   const words = mnemonic ? mnemonic.split(" ") : [];
 
@@ -85,29 +102,43 @@ export default function CreateWalletScreen() {
                 </Text>
               </TouchableOpacity>
             ) : (
-              <View style={styles.wordGrid}>
-                {words.map((word, i) => (
-                  <View key={i} style={styles.wordChip}>
-                    <Text style={styles.wordIndex}>{i + 1}</Text>
-                    <Text style={styles.wordText}>{word}</Text>
+              <>
+                <View style={styles.wordGrid}>
+                  {words.map((word, i) => (
+                    <View key={i} style={styles.wordChip}>
+                      <Text style={styles.wordIndex}>{i + 1}</Text>
+                      <Text style={styles.wordText}>{word}</Text>
+                    </View>
+                  ))}
+                </View>
+
+                {/* Checkbox / Confirmation Condition */}
+                <TouchableOpacity
+                  style={styles.checkboxContainer}
+                  activeOpacity={0.8}
+                  onPress={() => setIsChecked(!isChecked)}
+                >
+                  <View style={[styles.checkbox, isChecked && styles.checkboxChecked]}>
+                    {isChecked && <Ionicons name="checkmark" size={14} color="#FFFFFF" />}
                   </View>
-                ))}
-              </View>
+                  <Text style={styles.checkboxLabel}>
+                    I have safely saved my 12-word recovery phrase in a secure place. I understand that if I lose it, my funds cannot be recovered.
+                  </Text>
+                </TouchableOpacity>
+              </>
             )}
           </View>
 
           <TouchableOpacity
             style={[
               styles.continueBtn,
-              (!revealed || loading || !!error) && styles.continueBtnDisabled,
+              (!revealed || !isChecked || loading || !!error) && styles.continueBtnDisabled,
             ]}
-            disabled={!revealed || loading || !!error}
-            onPress={() =>
-              router.push({ pathname: "confirm" as any, params: { mnemonic } })
-            }
+            disabled={!revealed || !isChecked || loading || !!error}
+            onPress={handleProceedToVerify}
           >
             <Text style={styles.continueBtnText}>
-              {loading ? "Generating..." : "I've Saved It — Continue"}
+              {loading ? "Preparing..." : "Continue to Verify"}
             </Text>
           </TouchableOpacity>
         </ScrollView>
@@ -166,6 +197,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 10,
+    marginBottom: 20,
   },
   wordChip: {
     flexDirection: "row",
@@ -181,6 +213,36 @@ const styles = StyleSheet.create({
   },
   wordIndex: { color: Colors.textSecondary, fontSize: 11, fontWeight: "600" },
   wordText: { color: Colors.textPrimary, fontSize: 13, fontWeight: "600" },
+  checkboxContainer: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    backgroundColor: Colors.surfaceCard,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    gap: 12,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: Colors.textSecondary,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 2,
+  },
+  checkboxChecked: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  checkboxLabel: {
+    flex: 1,
+    fontSize: 12.5,
+    color: Colors.textSecondary,
+    lineHeight: 18,
+  },
   continueBtn: {
     backgroundColor: Colors.primary,
     paddingVertical: 16,

@@ -13,7 +13,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Colors } from "@/constants/Colors";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -38,6 +38,10 @@ export default function ConfirmPhraseScreen() {
   const [usedIndexes, setUsedIndexes] = useState<Set<number>>(new Set());
   const [failed, setFailed] = useState(false);
 
+  // Optional Skip Checkbox State
+  const [isChecked, setIsChecked] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
   useEffect(() => {
     // Safety net: if someone lands here with no mnemonic (e.g. deep link, refresh), bounce back
     if (!mnemonic) {
@@ -46,7 +50,7 @@ export default function ConfirmPhraseScreen() {
   }, [mnemonic, router]);
 
   const handleWordTap = (word: string, index: number) => {
-    if (usedIndexes.has(index)) return;
+    if (usedIndexes.has(index) || isChecked) return; // Agar skip checked hai toh taps disable rahein
     const next = [...selected, word];
     setSelected(next);
     setUsedIndexes(new Set(usedIndexes).add(index));
@@ -84,26 +88,57 @@ export default function ConfirmPhraseScreen() {
     );
   };
 
+  const handleCompleteCreation = async (isBackedUp: boolean) => {
+    try {
+      setIsSaving(true);
+      // Backup status save karein (@wallet_backed_up: true agar verified ya ticked, false agar skip)
+      await AsyncStorage.setItem("@wallet_backed_up", isBackedUp ? "true" : "false");
+      router.push("/(auth)/unlock?mode=setup" as any);
+    } catch (err) {
+      console.error("Failed to update backup status:", err);
+      Alert.alert("Error", "Kuch gadbad ho gayi, kripya dobara koshish karein.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleContinue = () => {
-    // Verified — move to PIN setup. Wallet + mnemonic already stored by createWallet().
-    router.push("/(auth)/unlock?mode=setup" as any);
+    // Agar user ne skip checkbox tick kiya hai
+    if (isChecked) {
+      Alert.alert(
+        "Skip Verification?",
+        "Kya aapne apna recovery phrase surakshit jagah likh liya hai? Agar device kho gaya aur phrase nahi mila, toh funds wapas nahi milenge.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Yes, Skip",
+            style: "destructive",
+            onPress: () => handleCompleteCreation(false), // false matlab unverified/skipped
+          },
+        ]
+      );
+    } else {
+      // Normal Verified Continue
+      handleCompleteCreation(true); // true matlab successfully verified
+    }
   };
 
   const isComplete =
-    selected.length === correctWords.length &&
-    selected.every((w, i) => w === correctWords[i]);
+    (selected.length === correctWords.length &&
+      selected.every((w, i) => w === correctWords[i])) ||
+    isChecked;
 
   return (
     <LinearGradient
-      colors={[Colors.cardGradientStart, Colors.cardGradientEnd]}
+      colors={["#07162C", "#0E335E", "#0B5997"]}
       style={styles.container}
     >
       <SafeAreaView style={styles.safe}>
-        <StatusBar barStyle="dark-content" />
+        <StatusBar barStyle="light-content" />
 
         <View style={styles.header}>
           <TouchableOpacity onPress={handleAbandon}>
-            <Ionicons name="arrow-back" size={22} color={Colors.textPrimary} />
+            <Ionicons name="arrow-back" size={22} color="#FFF" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Verify Phrase</Text>
           <View style={{ width: 22 }} />
@@ -115,7 +150,7 @@ export default function ConfirmPhraseScreen() {
         >
           <Text style={styles.instruction}>
             Tap the words in the correct order to confirm you saved your
-            recovery phrase.
+            recovery phrase, or select the option below to skip.
           </Text>
 
           {/* Selected words preview */}
@@ -140,7 +175,7 @@ export default function ConfirmPhraseScreen() {
           )}
 
           {/* Word bank */}
-          <View style={styles.wordBank}>
+          <View style={[styles.wordBank, isChecked && { opacity: 0.4 }]}>
             {shuffledWords.map((word, i) => (
               <TouchableOpacity
                 key={i}
@@ -148,7 +183,7 @@ export default function ConfirmPhraseScreen() {
                   styles.wordChip,
                   usedIndexes.has(i) && styles.wordChipUsed,
                 ]}
-                disabled={usedIndexes.has(i) || failed}
+                disabled={usedIndexes.has(i) || failed || isChecked}
                 onPress={() => handleWordTap(word, i)}
               >
                 <Text
@@ -163,20 +198,44 @@ export default function ConfirmPhraseScreen() {
             ))}
           </View>
 
+          {/* Optional Checkbox / Skip Option */}
+          <TouchableOpacity
+            style={styles.checkboxContainer}
+            activeOpacity={0.8}
+            onPress={() => {
+              setIsChecked(!isChecked);
+              if (!isChecked) {
+                setFailed(false);
+              }
+            }}
+          >
+            <View style={[styles.checkbox, isChecked && styles.checkboxChecked]}>
+              {isChecked && <Ionicons name="checkmark" size={14} color="#FFF" />}
+            </View>
+            <Text style={styles.checkboxLabel}>
+              I have safely saved my mnemonic. Skip verification for now.
+            </Text>
+          </TouchableOpacity>
+
           <View style={styles.actionsRow}>
-            <TouchableOpacity style={styles.resetBtn} onPress={handleReset}>
-              <Text style={styles.resetBtnText}>Reset</Text>
-            </TouchableOpacity>
+            {!isChecked && (
+              <TouchableOpacity style={styles.resetBtn} onPress={handleReset}>
+                <Text style={styles.resetBtnText}>Reset</Text>
+              </TouchableOpacity>
+            )}
 
             <TouchableOpacity
               style={[
                 styles.continueBtn,
                 !isComplete && styles.continueBtnDisabled,
+                isChecked && { flex: 1 },
               ]}
-              disabled={!isComplete}
+              disabled={!isComplete || isSaving}
               onPress={handleContinue}
             >
-              <Text style={styles.continueBtnText}>Continue</Text>
+              <Text style={styles.continueBtnText}>
+                {isSaving ? "Saving..." : isChecked ? "Skip & Continue" : "Continue"}
+              </Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -194,11 +253,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 14,
   },
-  headerTitle: { color: Colors.textPrimary, fontSize: 16, fontWeight: "600" },
+  headerTitle: { color: "#FFF", fontSize: 16, fontWeight: "600" },
   scrollContent: { paddingBottom: 30 },
   instruction: {
     fontSize: 14,
-    color: Colors.textSecondary,
+    color: "#A0B3D6",
     lineHeight: 20,
     marginTop: 6,
     marginBottom: 20,
@@ -207,9 +266,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
-    backgroundColor: Colors.surfaceCard,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    backgroundColor: "rgba(255,255,255,0.05)",
     borderRadius: 14,
     padding: 12,
     marginBottom: 10,
@@ -217,8 +274,7 @@ const styles = StyleSheet.create({
   },
   selectedSlot: {
     borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.accentCyan,
+    borderColor: "rgba(255,255,255,0.2)",
     borderRadius: 8,
     paddingVertical: 8,
     paddingHorizontal: 10,
@@ -226,12 +282,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   selectedSlotError: {
-    borderColor: Colors.negativeRed,
-    backgroundColor: "rgba(255, 59, 48, 0.1)",
+    borderColor: "#DC2626",
   },
-  selectedSlotText: { color: Colors.textPrimary, fontSize: 13, fontWeight: "600" },
+  selectedSlotText: { color: "#FFF", fontSize: 13, fontWeight: "600" },
   errorText: {
-    color: Colors.negativeRed,
+    color: "#FCA5A5",
     fontSize: 13,
     marginBottom: 12,
     textAlign: "center",
@@ -243,41 +298,70 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   wordChip: {
-    backgroundColor: Colors.surfaceCard,
+    backgroundColor: "rgba(255,255,255,0.08)",
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: "rgba(255,255,255,0.12)",
     borderRadius: 10,
     paddingVertical: 10,
     paddingHorizontal: 14,
   },
   wordChipUsed: {
-    opacity: 0.3,
-    backgroundColor: Colors.accentCyan,
+    opacity: 0.25,
   },
-  wordChipText: { color: Colors.textPrimary, fontSize: 13, fontWeight: "600" },
-  wordChipTextUsed: { color: Colors.textSecondary },
+  wordChipText: { color: "#FFF", fontSize: 13, fontWeight: "600" },
+  wordChipTextUsed: { color: "#64748B" },
+  checkboxContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.05)",
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+    marginTop: 20,
+    gap: 12,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: "#A0B3D6",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkboxChecked: {
+    backgroundColor: "#0090FF",
+    borderColor: "#0090FF",
+  },
+  checkboxLabel: {
+    flex: 1,
+    fontSize: 13,
+    color: "#A0B3D6",
+    lineHeight: 18,
+  },
   actionsRow: {
     flexDirection: "row",
     gap: 12,
-    marginTop: 30,
+    marginTop: 24,
   },
   resetBtn: {
     flex: 1,
     paddingVertical: 16,
     borderRadius: 14,
     alignItems: "center",
-    backgroundColor: Colors.surfaceCard,
+    backgroundColor: "rgba(255,255,255,0.08)",
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: "rgba(255,255,255,0.15)",
   },
-  resetBtnText: { color: Colors.textPrimary, fontWeight: "600", fontSize: 15 },
+  resetBtnText: { color: "#FFF", fontWeight: "600", fontSize: 15 },
   continueBtn: {
     flex: 2,
     paddingVertical: 16,
     borderRadius: 14,
     alignItems: "center",
-    backgroundColor: Colors.primary,
+    backgroundColor: "#0090FF",
   },
-  continueBtnDisabled: { backgroundColor: Colors.disabled },
-  continueBtnText: { color: Colors.onPrimary, fontWeight: "700", fontSize: 15 },
+  continueBtnDisabled: { backgroundColor: "#33475F" },
+  continueBtnText: { color: "#FFF", fontWeight: "700", fontSize: 15 },
 });

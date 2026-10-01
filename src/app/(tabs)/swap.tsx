@@ -9,11 +9,13 @@ import {
 } from "@/services/cryptoService";
 import { executeBlockchainTransaction } from "@/services/transactionService";
 import { Colors } from "@/constants/Colors";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   StatusBar,
   StyleSheet,
   Text,
@@ -23,6 +25,30 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+
+// Real Crypto Icon Helper based on symbol
+const getCoinIconDetails = (symbol: string) => {
+  const upperSymbol = symbol?.toUpperCase() || "";
+  switch (upperSymbol) {
+    case "ETH":
+      return { name: "ethereum", type: "material-community", bg: "#627EEA" };
+    case "USDC":
+      return { name: "currency-usd", type: "material-community", bg: "#2775CA" };
+    case "USDT":
+      return { name: "t-bitcoin", type: "material-community", bg: "#26A17B" };
+    case "BTC":
+      return { name: "bitcoin", type: "material-community", bg: "#F7931A" };
+    case "SOL":
+      return { name: "flash", type: "material-community", bg: "#14F195" };
+    case "MATIC":
+    case "POL":
+      return { name: "polygon", type: "material-community", bg: "#8247E5" };
+    case "BNB":
+      return { name: "alpha-b-box", type: "material-community", bg: "#F3BA2F" };
+    default:
+      return { name: "coins", type: "font-awesome5", bg: Colors.primary };
+  }
+};
 
 export default function SwapScreen() {
   const { address } = useAuth();
@@ -34,7 +60,7 @@ export default function SwapScreen() {
     name: "Ethereum",
     balance: "1.5000",
     icon: "ethereum",
-    color: "#000000",
+    color: "#627EEA",
     network: "ethereum",
   });
   const [toToken, setToToken] = useState({
@@ -42,7 +68,7 @@ export default function SwapScreen() {
     name: "USDC",
     balance: "0.31",
     icon: "currency-usd",
-    color: "#000000",
+    color: "#2775CA",
     network: "ethereum",
   });
 
@@ -173,11 +199,13 @@ export default function SwapScreen() {
         }
 
         if (tokenBalance && !isNaN(Number(tokenBalance))) {
+          const details = getCoinIconDetails(tokenConfig.symbol);
           setToToken((prev) => ({
             ...prev,
             symbol: tokenConfig.symbol,
             name: tokenConfig.name,
             balance: parseFloat(tokenBalance).toFixed(2),
+            color: details.bg,
           }));
         }
       }
@@ -202,243 +230,328 @@ export default function SwapScreen() {
   const usdValue = parseFloat(payAmount || "0") * (fromToken.symbol === "ETH" ? ethRate : 1);
   const inrValue = usdValue * usdtInrRate;
 
+  const receiveNum = parseFloat(receiveAmount) || 0;
+  const fmtUsd = (n: number) =>
+    n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const fmtInr = (n: number) =>
+    n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  // Helper to render dynamic custom styled coin icon component
+  const renderCoinIcon = (symbol: string) => {
+    const iconMeta = getCoinIconDetails(symbol);
+    return (
+      <View style={[styles.tokenIcon, { backgroundColor: iconMeta.bg }]}>
+        {iconMeta.type === "font-awesome5" ? (
+          <FontAwesome5 name={iconMeta.name as any} size={14} color="#FFFFFF" />
+        ) : (
+          <MaterialCommunityIcons name={iconMeta.name as any} size={16} color="#FFFFFF" />
+        )}
+      </View>
+    );
+  };
+
   return (
-    <SafeAreaView style={styles.safeContainer} edges={["top"]}>
+    <SafeAreaView style={styles.safeContainer} edges={["top", "bottom"]}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.backgroundLight} />
 
+      {/* Header */}
       <View style={styles.topHeader}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={24} color={Colors.textPrimary} />
+        <TouchableOpacity style={styles.headerBtn} onPress={() => router.back()}>
+          <Ionicons name="chevron-back" size={22} color={Colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.title}>Swap/Exchange</Text>
-        <TouchableOpacity>
-          <Ionicons name="options-outline" size={22} color={Colors.textPrimary} />
+        <Text style={styles.title}>Swap</Text>
+        <TouchableOpacity style={styles.headerBtn}>
+          <Ionicons name="options-outline" size={20} color={Colors.textPrimary} />
         </TouchableOpacity>
       </View>
 
-      <View style={styles.content}>
-        {/* "From" Card */}
-        <View style={styles.swapCard}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardLabel}>From</Text>
-            <TouchableOpacity onPress={() => setPayAmount(fromToken.balance)}>
-              <Text style={styles.balanceHint}>
-                Balance: {fromToken.balance} {fromToken.symbol}{" "}
-                <Text style={{ color: Colors.textPrimary, fontWeight: "700" }}>(MAX)</Text>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <View style={styles.content}>
+          {/* From / To block */}
+          <View>
+            {/* From */}
+            <View style={[styles.panel, styles.panelTop]}>
+              <View style={styles.panelHeader}>
+                <Text style={styles.panelLabel}>You pay</Text>
+                <TouchableOpacity
+                  style={styles.maxBtn}
+                  onPress={() => setPayAmount(fromToken.balance)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.maxText}>MAX</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.inputRow}>
+                <TextInput
+                  style={styles.amountInput}
+                  keyboardType="decimal-pad"
+                  value={payAmount}
+                  onChangeText={(val) => setPayAmount(val)}
+                  placeholder="0.0"
+                  placeholderTextColor={Colors.disabled}
+                  numberOfLines={1}
+                />
+                <TouchableOpacity style={styles.tokenPill} activeOpacity={0.8}>
+                  {renderCoinIcon(fromToken.symbol)}
+                  <Text style={styles.tokenSymbol}>{fromToken.symbol}</Text>
+                  <Ionicons name="chevron-down" size={14} color={Colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.metaRow}>
+                <Text style={styles.metaText} numberOfLines={1}>
+                  ≈ ${fmtUsd(usdValue)} · ₹{fmtInr(inrValue)}
+                </Text>
+                <Text style={styles.metaText}>
+                  Bal {fromToken.balance} {fromToken.symbol}
+                </Text>
+              </View>
+            </View>
+
+            {/* To */}
+            <View style={[styles.panel, styles.panelBottom]}>
+              <View style={styles.panelHeader}>
+                <Text style={styles.panelLabel}>You receive</Text>
+              </View>
+
+              <View style={styles.inputRow}>
+                <Text style={styles.amountResult} numberOfLines={1} adjustsFontSizeToFit>
+                  {receiveAmount}
+                </Text>
+                <TouchableOpacity style={styles.tokenPill} activeOpacity={0.8}>
+                  {renderCoinIcon(toToken.symbol)}
+                  <Text style={styles.tokenSymbol}>{toToken.symbol}</Text>
+                  <Ionicons name="chevron-down" size={14} color={Colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.metaRow}>
+                <Text style={styles.metaText} numberOfLines={1}>
+                  ≈ ${fmtUsd(receiveNum)} · ₹{fmtInr(receiveNum * usdtInrRate)}
+                </Text>
+                <Text style={styles.metaText}>
+                  Bal {toToken.balance} {toToken.symbol}
+                </Text>
+              </View>
+            </View>
+
+            {/* Switch button, sits on the seam between the two panels */}
+            <View style={styles.switchWrap} pointerEvents="box-none">
+              <TouchableOpacity
+                style={styles.switchButton}
+                onPress={handleSwitchTokens}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="swap-vertical" size={18} color={Colors.onPrimary} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Rate & fee */}
+          <View style={styles.summary}>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Rate</Text>
+              <Text style={styles.summaryValue}>
+                1 {fromToken.symbol} ≈ {ethRate.toLocaleString()} {toToken.symbol}
               </Text>
-            </TouchableOpacity>
+            </View>
+            <View style={styles.summaryDivider} />
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Network fee</Text>
+              <Text style={styles.summaryValue}>
+                ~${(0.85).toFixed(2)} · ₹{fmtInr(0.85 * usdtInrRate)}
+              </Text>
+            </View>
           </View>
-          <View style={styles.inputRow}>
-            <TouchableOpacity style={styles.tokenPickerBtn}>
-              <MaterialCommunityIcons
-                name={fromToken.icon as any}
-                size={22}
-                color={Colors.textPrimary}
-              />
-              <Text style={styles.tokenPickerText}>{fromToken.symbol}</Text>
-              <Ionicons name="chevron-down" size={16} color={Colors.textSecondary} />
-            </TouchableOpacity>
-            <TextInput
-              style={styles.amountInput}
-              keyboardType="decimal-pad"
-              value={payAmount}
-              onChangeText={(val) => setPayAmount(val)}
-              placeholder="0.0"
-              placeholderTextColor={Colors.disabled}
-              numberOfLines={1}
-            />
-          </View>
-          <Text style={styles.usdEquivalent} numberOfLines={1} ellipsizeMode="tail">
-            ≈ ${usdValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{" "}
-            (₹{inrValue.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
-          </Text>
         </View>
 
-        {/* Swap Switcher Button */}
-        <View style={styles.switchButtonWrapper}>
-          <TouchableOpacity style={styles.switchButton} onPress={handleSwitchTokens}>
-            <Ionicons name="swap-vertical" size={20} color={Colors.textPrimary} />
+        {/* Confirm */}
+        <View style={styles.footer}>
+          <TouchableOpacity
+            style={[styles.confirmBtn, swapping && { opacity: 0.7 }]}
+            onPress={handleConfirmSwap}
+            disabled={swapping}
+            activeOpacity={0.85}
+          >
+            {swapping ? (
+              <ActivityIndicator color={Colors.onPrimary} />
+            ) : (
+              <Text style={styles.confirmBtnText}>Confirm swap</Text>
+            )}
           </TouchableOpacity>
         </View>
-
-        {/* "To" Card */}
-        <View style={styles.swapCard}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardLabel}>To</Text>
-            <Text style={styles.balanceHint}>
-              Balance: {toToken.balance} {toToken.symbol}
-            </Text>
-          </View>
-          <View style={styles.inputRow}>
-            <TouchableOpacity style={styles.tokenPickerBtn}>
-              <MaterialCommunityIcons
-                name={toToken.icon as any}
-                size={22}
-                color={Colors.textPrimary}
-              />
-              <Text style={styles.tokenPickerText}>{toToken.symbol}</Text>
-              <Ionicons name="chevron-down" size={16} color={Colors.textSecondary} />
-            </TouchableOpacity>
-            <Text style={styles.amountResult} numberOfLines={1}>
-              {receiveAmount}
-            </Text>
-          </View>
-          <Text style={styles.usdEquivalent} numberOfLines={1} ellipsizeMode="tail">
-            ≈ ${parseFloat(receiveAmount).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{" "}
-            (₹{(parseFloat(receiveAmount) * usdtInrRate).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
-          </Text>
-        </View>
-
-        {/* Fee & Rate Summary */}
-        <View style={styles.summaryContainer}>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Estimated conversion</Text>
-            <Text style={styles.summaryValue}>
-              1 {fromToken.symbol} ≈ {ethRate.toLocaleString()} {toToken.symbol}
-            </Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Gas Fee estimate</Text>
-            <Text style={styles.summaryValue}>
-              ~${(0.85).toFixed(2)} USD (~₹
-              {(0.85 * usdtInrRate).toLocaleString("en-IN", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-              )
-            </Text>
-          </View>
-        </View>
-
-        {/* Confirm Action Button */}
-        <TouchableOpacity
-          style={[styles.confirmBtn, swapping && { opacity: 0.7 }]}
-          onPress={handleConfirmSwap}
-          disabled={swapping}
-        >
-          {swapping ? (
-            <ActivityIndicator color={Colors.onPrimary} />
-          ) : (
-            <Text style={styles.confirmBtnText}>Confirm Swap</Text>
-          )}
-        </TouchableOpacity>
-      </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
+const PANEL_BG = Colors.surfaceAlt ?? "#F6F6F6";
+
 const styles = StyleSheet.create({
+  flex: { flex: 1 },
   safeContainer: { flex: 1, backgroundColor: Colors.backgroundLight },
+
   topHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingVertical: 14,
+    paddingVertical: 10,
   },
-  title: { fontSize: 18, fontWeight: "700", color: Colors.textPrimary },
-  content: { paddingHorizontal: 20, paddingTop: 10 },
-  swapCard: {
-    backgroundColor: Colors.surfaceCard,
+  headerBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: Colors.border,
-    borderRadius: 20,
-    padding: 16,
-    shadowColor: "#000",
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    elevation: 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  cardHeader: {
+  title: { fontSize: 17, fontWeight: "700", color: Colors.textPrimary },
+
+  content: { flex: 1, paddingHorizontal: 20, paddingTop: 16 },
+
+  /* Panels */
+  panel: {
+    backgroundColor: PANEL_BG,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  panelTop: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderBottomLeftRadius: 8,
+    borderBottomRightRadius: 8,
+  },
+  panelBottom: {
+    marginTop: 4,
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+  },
+  panelHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 10,
+    alignItems: "center",
+    height: 24,
   },
-  cardLabel: { fontSize: 13, color: Colors.textSecondary, fontWeight: "500" },
-  balanceHint: { fontSize: 12, color: Colors.textSecondary },
+  panelLabel: { fontSize: 13, fontWeight: "600", color: Colors.textSecondary },
+  maxBtn: {
+    backgroundColor: Colors.primary,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  maxText: {
+    fontSize: 10.5,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+    color: Colors.onPrimary,
+  },
+
   inputRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    marginTop: 10,
   },
-  tokenPickerBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: Colors.accentCyan,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 14,
-    gap: 6,
-    flexShrink: 0,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  tokenPickerText: { fontSize: 15, fontWeight: "600", color: Colors.textPrimary },
   amountInput: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: Colors.textPrimary,
-    textAlign: "right",
     flex: 1,
-    marginLeft: 12,
+    fontSize: 36,
+    fontWeight: "700",
+    letterSpacing: -1,
+    color: Colors.textPrimary,
     padding: 0,
+    marginRight: 12,
   },
   amountResult: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: Colors.textPrimary,
-    textAlign: "right",
     flex: 1,
-    marginLeft: 12,
+    fontSize: 36,
+    fontWeight: "700",
+    letterSpacing: -1,
+    color: Colors.textPrimary,
+    marginRight: 12,
   },
-  usdEquivalent: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-    textAlign: "right",
-    marginTop: 4,
-  },
-  switchButtonWrapper: {
+
+  tokenPill: {
+    flexDirection: "row",
     alignItems: "center",
-    zIndex: 10,
-    marginVertical: -14,
+    gap: 7,
+    backgroundColor: Colors.surfaceCard,
+    paddingVertical: 6,
+    paddingLeft: 6,
+    paddingRight: 10,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  tokenIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tokenSymbol: { fontSize: 15, fontWeight: "700", color: Colors.textPrimary },
+
+  metaRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 10,
+    gap: 10,
+  },
+  metaText: { fontSize: 12, color: Colors.textSecondary, flexShrink: 1 },
+
+  /* Switch button */
+  switchWrap: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: "50%",
+    marginTop: -20,
+    alignItems: "center",
   },
   switchButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: Colors.surfaceCard,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.primary,
+    borderWidth: 4,
+    borderColor: Colors.backgroundLight,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 5,
-    elevation: 3,
   },
-  summaryContainer: {
-    marginTop: 20,
-    backgroundColor: Colors.surfaceCard,
-    borderRadius: 14,
-    padding: 14,
-    gap: 10,
-    borderWidth: 1,
-    borderColor: Colors.border,
+
+  /* Summary */
+  summary: { marginTop: 24, paddingHorizontal: 4 },
+  summaryRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 12,
   },
-  summaryRow: { flexDirection: "row", justifyContent: "space-between" },
-  summaryLabel: { fontSize: 13, color: Colors.textSecondary },
-  summaryValue: { fontSize: 13, fontWeight: "500", color: Colors.textPrimary },
+  summaryDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: Colors.border,
+  },
+  summaryLabel: { fontSize: 13.5, color: Colors.textSecondary },
+  summaryValue: { fontSize: 13.5, fontWeight: "600", color: Colors.textPrimary },
+
+  /* Footer */
+  footer: { paddingHorizontal: 20, paddingBottom: 16, paddingTop: 8 },
   confirmBtn: {
     backgroundColor: Colors.primary,
-    height: 52,
-    borderRadius: 26,
+    height: 56,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 24,
-    shadowColor: Colors.primary,
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 2,
   },
   confirmBtnText: { color: Colors.onPrimary, fontSize: 16, fontWeight: "700" },
 });

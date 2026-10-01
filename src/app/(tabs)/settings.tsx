@@ -7,6 +7,8 @@ import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   Alert,
+  Linking,
+  Platform,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -21,30 +23,32 @@ const CURRENCY_KEY = "@crypto_currency";
 const WATCHLIST_KEY = "@crypto_watchlist";
 const COMPACT_MODE_KEY = "@compact_market_view";
 
+type Currency = "inr" | "usd";
+
 export default function SettingsScreen() {
   const router = useRouter();
   const { address, lock } = useAuth();
-  const [currency, setCurrency] = useState<"inr" | "usd">("inr");
+  const [currency, setCurrency] = useState<Currency>("inr");
   const [copied, setCopied] = useState(false);
   const [compactMode, setCompactMode] = useState(false);
 
   useEffect(() => {
     AsyncStorage.getItem(CURRENCY_KEY).then((value) => {
-      if (value === "inr" || value === "usd") {
-        setCurrency(value);
-      }
+      if (value === "inr" || value === "usd") setCurrency(value);
     });
-
     AsyncStorage.getItem(COMPACT_MODE_KEY).then((value) => {
-      if (value !== null) {
-        setCompactMode(JSON.parse(value));
-      }
+      if (value !== null) setCompactMode(JSON.parse(value));
     });
   }, []);
 
-  const changeCurrency = async (value: "inr" | "usd") => {
+  const changeCurrency = async (value: Currency) => {
     setCurrency(value);
     await AsyncStorage.setItem(CURRENCY_KEY, value);
+  };
+
+  const toggleCompact = async (value: boolean) => {
+    setCompactMode(value);
+    await AsyncStorage.setItem(COMPACT_MODE_KEY, JSON.stringify(value));
   };
 
   const copyAddress = async () => {
@@ -55,17 +59,21 @@ export default function SettingsScreen() {
   };
 
   const clearWatchlist = () => {
-    Alert.alert("Clear watchlist?", "All saved market coins will be removed from your watchlist.", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Clear",
-        style: "destructive",
-        onPress: async () => {
-          await AsyncStorage.removeItem(WATCHLIST_KEY);
-          Alert.alert("Done", "Your watchlist has been cleared.");
+    Alert.alert(
+      "Clear watchlist?",
+      "All saved market coins will be removed from your watchlist.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Clear",
+          style: "destructive",
+          onPress: async () => {
+            await AsyncStorage.removeItem(WATCHLIST_KEY);
+            Alert.alert("Done", "Your watchlist has been cleared.");
+          },
         },
-      },
-    ]);
+      ]
+    );
   };
 
   const lockWallet = () => {
@@ -77,301 +85,336 @@ export default function SettingsScreen() {
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.backgroundLight} />
 
-      <View style={styles.header}>
-        <View>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.content}
+      >
+        {/* Header */}
+        <View style={styles.header}>
           <Text style={styles.title}>Settings</Text>
           <Text style={styles.subtitle}>Manage your wallet experience</Text>
         </View>
-        <View style={styles.headerIcon}>
-          <Ionicons name="settings-outline" size={21} color={Colors.textPrimary} />
-        </View>
-      </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-        <SectionTitle title="Preferences" />
-        <View style={styles.card}>
-          <SettingRow
+        {/* Wallet hero card (address + security status) */}
+        <View style={styles.hero}>
+          <View style={styles.heroTop}>
+            <Text style={styles.heroLabel}>Wallet</Text>
+            <View style={styles.secureBadge}>
+              <View style={styles.secureDot} />
+              <Text style={styles.secureText}>Keys stored on device</Text>
+            </View>
+          </View>
+
+          <Text style={styles.heroAddress} numberOfLines={1}>
+            {address
+              ? `${address.slice(0, 10)}...${address.slice(-8)}`
+              : "No wallet connected"}
+          </Text>
+
+          {address ? (
+            <TouchableOpacity
+              style={styles.heroCopy}
+              onPress={copyAddress}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name={copied ? "checkmark" : "copy-outline"}
+                size={15}
+                color={Colors.primary}
+              />
+              <Text style={styles.heroCopyText}>
+                {copied ? "Copied" : "Copy address"}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+
+        {/* Preferences */}
+        <Section title="Preferences">
+          <Row
             icon="cash-outline"
-            title="Preferred currency"
+            title="Currency"
             subtitle="Used to display market prices"
             right={
-              <View style={styles.currencyToggle}>
-                <TouchableOpacity
-                  onPress={() => changeCurrency("inr")}
-                  style={[styles.currencyPill, currency === "inr" && styles.currencyPillActive]}
-                >
-                  <Text
-                    style={[
-                      styles.currencyPillText,
-                      currency === "inr" && styles.currencyPillTextActive,
-                    ]}
-                  >
-                    ₹ INR
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => changeCurrency("usd")}
-                  style={[styles.currencyPill, currency === "usd" && styles.currencyPillActive]}
-                >
-                  <Text
-                    style={[
-                      styles.currencyPillText,
-                      currency === "usd" && styles.currencyPillTextActive,
-                    ]}
-                  >
-                    $ USD
-                  </Text>
-                </TouchableOpacity>
+              <View style={styles.segment}>
+                {(["inr", "usd"] as Currency[]).map((c) => {
+                  const active = currency === c;
+                  return (
+                    <TouchableOpacity
+                      key={c}
+                      onPress={() => changeCurrency(c)}
+                      style={[styles.segmentItem, active && styles.segmentItemActive]}
+                      activeOpacity={0.8}
+                    >
+                      <Text
+                        style={[styles.segmentText, active && styles.segmentTextActive]}
+                      >
+                        {c === "inr" ? "₹ INR" : "$ USD"}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             }
           />
           <Divider />
-          <SettingRow
-            icon="phone-portrait-outline"
+          <Row
+            icon="list-outline"
             title="Compact market view"
-            subtitle="Use a tighter list on the Markets screen"
+            subtitle="Tighter list on the Markets screen"
             right={
               <Switch
                 value={compactMode}
-                onValueChange={async (value) => {
-                  setCompactMode(value);
-                  await AsyncStorage.setItem(COMPACT_MODE_KEY, JSON.stringify(value));
-                }}
-                trackColor={{ false: Colors.border, true: Colors.disabled }}
-                thumbColor={compactMode ? Colors.primary : Colors.backgroundLight}
+                onValueChange={toggleCompact}
+                trackColor={{ false: Colors.border, true: Colors.primary }}
+                thumbColor={Colors.backgroundLight}
+                ios_backgroundColor={Colors.border}
               />
             }
           />
-        </View>
+        </Section>
 
-        <SectionTitle title="Security" />
-        <View style={styles.card}>
-          <SettingRow
-            icon="shield-checkmark-outline"
-            iconTone="green"
-            title="Wallet security"
-            subtitle="Your private keys stay on this device"
-            right={<Ionicons name="checkmark-circle" size={22} color={Colors.positiveGreen} />}
-          />
-          <Divider />
-          <TouchableOpacity style={styles.actionRow} onPress={lockWallet}>
-            <View style={[styles.rowIcon, styles.redIcon]}>
-              <Ionicons name="lock-closed-outline" size={19} color={Colors.negativeRed} />
-            </View>
-            <View style={styles.rowText}>
-              <Text style={styles.rowTitle}>Lock wallet</Text>
-              <Text style={styles.rowSubtitle}>Require wallet unlock again</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={Colors.disabled} />
-          </TouchableOpacity>
-        </View>
-
-        <SectionTitle title="Wallet" />
-        <View style={styles.card}>
-          <SettingRow
-            icon="wallet-outline"
-            title="Wallet address"
-            subtitle={
-              address ? `${address.slice(0, 10)}...${address.slice(-8)}` : "No wallet connected"
-            }
+        {/* Security */}
+        <Section title="Security">
+          <Row
+            icon="lock-closed-outline"
+            title="Lock wallet"
+            subtitle="Require unlock again"
+            onPress={lockWallet}
             right={
-              address ? (
-                <TouchableOpacity style={styles.copyButton} onPress={copyAddress}>
-                  <Ionicons
-                    name={copied ? "checkmark" : "copy-outline"}
-                    size={16}
-                    color={Colors.textPrimary}
-                  />
-                  <Text style={styles.copyText}>{copied ? "Copied" : "Copy"}</Text>
-                </TouchableOpacity>
-              ) : null
+              <Ionicons name="chevron-forward" size={18} color={Colors.disabled} />
             }
           />
-        </View>
+        </Section>
 
-        <SectionTitle title="Data" />
-        <View style={styles.card}>
-          <TouchableOpacity style={styles.actionRow} onPress={clearWatchlist}>
-            <View style={styles.rowIcon}>
-              <Ionicons name="star-outline" size={19} color={Colors.textSecondary} />
-            </View>
-            <View style={styles.rowText}>
-              <Text style={styles.rowTitle}>Clear watchlist</Text>
-              <Text style={styles.rowSubtitle}>Remove all saved market coins</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={Colors.disabled} />
-          </TouchableOpacity>
-        </View>
+        {/* Data */}
+        <Section title="Data">
+          <Row
+            icon="star-outline"
+            title="Clear watchlist"
+            subtitle="Remove all saved market coins"
+            onPress={clearWatchlist}
+            destructive
+          />
+        </Section>
 
-        <SectionTitle title="About" />
-        <View style={styles.card}>
-          <SettingRow
+        {/* About */}
+        <Section title="About">
+          <Row
             icon="information-circle-outline"
             title="Crypto Wallet"
             subtitle="Version 1.0.0"
-            right={<Text style={styles.version}>v1.0.0</Text>}
+            right={<Text style={styles.value}>v1.0.0</Text>}
           />
           <Divider />
-          <SettingRow
+          <Row
             icon="pulse-outline"
             title="Market data"
             subtitle="Prices are provided by CoinGecko"
-            right={<Ionicons name="open-outline" size={17} color={Colors.textSecondary} />}
+            onPress={() => Linking.openURL("https://www.coingecko.com")}
+            right={
+              <Ionicons name="arrow-up-outline" size={16} color={Colors.textSecondary}
+                style={{ transform: [{ rotate: "45deg" }] }} />
+            }
           />
-        </View>
+        </Section>
 
-        <Text style={styles.footerText}>
-          Never share your recovery phrase or private keys with anyone.
-        </Text>
+        <View style={styles.footer}>
+          <Ionicons name="alert-circle-outline" size={15} color={Colors.textSecondary} />
+          <Text style={styles.footerText}>
+            Never share your recovery phrase or private keys with anyone.
+          </Text>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function SectionTitle({ title }: { title: string }) {
-  return <Text style={styles.sectionTitle}>{title}</Text>;
+/* ---------- Building blocks ---------- */
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      <View style={styles.sectionBody}>{children}</View>
+    </View>
+  );
 }
 
 function Divider() {
   return <View style={styles.divider} />;
 }
 
-function SettingRow({
+function Row({
   icon,
   title,
   subtitle,
   right,
-  iconTone,
+  onPress,
+  destructive,
 }: {
-  icon: any;
+  icon: React.ComponentProps<typeof Ionicons>["name"];
   title: string;
-  subtitle: string;
+  subtitle?: string;
   right?: React.ReactNode;
-  iconTone?: "green";
+  onPress?: () => void;
+  destructive?: boolean;
 }) {
-  return (
-    <View style={styles.settingRow}>
-      <View style={[styles.rowIcon, iconTone === "green" && styles.greenIcon]}>
-        <Ionicons
-          name={icon}
-          size={19}
-          color={iconTone === "green" ? Colors.positiveGreen : Colors.textSecondary}
-        />
-      </View>
+  const content = (
+    <View style={styles.row}>
+      <Ionicons
+        name={icon}
+        size={21}
+        color={destructive ? Colors.negativeRed : Colors.textPrimary}
+        style={styles.rowIcon}
+      />
       <View style={styles.rowText}>
-        <Text style={styles.rowTitle}>{title}</Text>
-        <Text style={styles.rowSubtitle}>{subtitle}</Text>
+        <Text style={[styles.rowTitle, destructive && { color: Colors.negativeRed }]}>
+          {title}
+        </Text>
+        {subtitle ? <Text style={styles.rowSubtitle}>{subtitle}</Text> : null}
       </View>
       {right}
     </View>
   );
+
+  if (!onPress) return content;
+  return (
+    <TouchableOpacity onPress={onPress} activeOpacity={0.6}>
+      {content}
+    </TouchableOpacity>
+  );
 }
+
+/* ---------- Styles ---------- */
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: Colors.backgroundLight },
-  header: {
+  content: { paddingHorizontal: 22, paddingBottom: 120 },
+
+  header: { paddingTop: 18, paddingBottom: 22 },
+  title: {
+    fontSize: 34,
+    fontWeight: "800",
+    letterSpacing: -1,
+    color: Colors.textPrimary,
+  },
+  subtitle: { fontSize: 14, color: Colors.textSecondary, marginTop: 4 },
+
+  /* Hero */
+  hero: {
+    backgroundColor: Colors.primary,
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 8,
+  },
+  heroTop: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 8,
   },
-  title: { fontSize: 25, fontWeight: "800", color: Colors.textPrimary },
-  subtitle: { fontSize: 12, color: Colors.textSecondary, marginTop: 3 },
-  headerIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 13,
-    backgroundColor: Colors.accentCyan,
+  heroLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "rgba(255,255,255,0.6)",
+  },
+  secureBadge: {
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: Colors.border,
+    gap: 6,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
   },
-  content: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 110 },
+  secureDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.positiveGreen,
+  },
+  secureText: { fontSize: 11, fontWeight: "600", color: Colors.onPrimary },
+  heroAddress: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: Colors.onPrimary,
+    marginTop: 26,
+    letterSpacing: 0.3,
+    fontFamily: Platform.select({ ios: "Menlo", android: "monospace" }),
+  },
+  heroCopy: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 6,
+    backgroundColor: Colors.onPrimary,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 20,
+    marginTop: 18,
+  },
+  heroCopyText: { fontSize: 13, fontWeight: "700", color: Colors.primary },
+
+  /* Sections */
+  section: { marginTop: 28 },
   sectionTitle: {
-    fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 0.8,
+    fontSize: 15,
+    fontWeight: "700",
+    color: Colors.textPrimary,
+    marginBottom: 4,
+  },
+  sectionBody: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Colors.border,
+  },
+
+  /* Rows */
+  row: {
+    minHeight: 64,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+  },
+  rowIcon: { width: 24, marginRight: 14 },
+  rowText: { flex: 1, paddingRight: 12 },
+  rowTitle: { fontSize: 15, fontWeight: "600", color: Colors.textPrimary },
+  rowSubtitle: {
+    fontSize: 12.5,
     color: Colors.textSecondary,
-    marginTop: 16,
-    marginBottom: 8,
-    marginLeft: 3,
-    textTransform: "uppercase",
+    marginTop: 2,
+    lineHeight: 17,
   },
-  card: {
-    backgroundColor: Colors.surfaceCard,
-    borderRadius: 17,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    overflow: "hidden",
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: Colors.border,
+    marginLeft: 38,
   },
-  settingRow: {
-    minHeight: 70,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  actionRow: {
-    minHeight: 68,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 14,
-  },
-  rowIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 11,
-    backgroundColor: Colors.accentCyan,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
-  greenIcon: { backgroundColor: "#E8F8EE" },
-  redIcon: { backgroundColor: "#FFEBEA" },
-  rowText: { flex: 1, paddingRight: 10 },
-  rowTitle: { fontSize: 14, fontWeight: "700", color: Colors.textPrimary },
-  rowSubtitle: { fontSize: 11.5, color: Colors.textSecondary, marginTop: 3, lineHeight: 16 },
-  divider: { height: 1, backgroundColor: Colors.border, marginLeft: 64 },
-  currencyToggle: {
+  value: { fontSize: 13, fontWeight: "600", color: Colors.textSecondary },
+
+  /* Segmented control */
+  segment: {
     flexDirection: "row",
     backgroundColor: Colors.accentCyan,
     padding: 3,
-    borderRadius: 11,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    borderRadius: 10,
   },
-  currencyPill: { paddingHorizontal: 9, paddingVertical: 6, borderRadius: 8 },
-  currencyPillActive: {
-    backgroundColor: Colors.surfaceCard,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 1,
-  },
-  currencyPillText: { fontSize: 11, fontWeight: "700", color: Colors.textSecondary },
-  currencyPillTextActive: { color: Colors.textPrimary },
-  copyButton: {
+  segmentItem: { paddingHorizontal: 11, paddingVertical: 6, borderRadius: 8 },
+  segmentItemActive: { backgroundColor: Colors.primary },
+  segmentText: { fontSize: 12, fontWeight: "700", color: Colors.textSecondary },
+  segmentTextActive: { color: Colors.onPrimary },
+
+  /* Footer */
+  footer: {
     flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    backgroundColor: Colors.accentCyan,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 9,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    alignItems: "flex-start",
+    gap: 8,
+    marginTop: 36,
+    paddingHorizontal: 2,
   },
-  copyText: { fontSize: 11, fontWeight: "700", color: Colors.textPrimary },
-  version: { fontSize: 11, fontWeight: "700", color: Colors.textSecondary },
   footerText: {
-    textAlign: "center",
-    fontSize: 11,
-    lineHeight: 17,
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 18,
     color: Colors.textSecondary,
-    paddingHorizontal: 30,
-    marginTop: 24,
   },
 });
